@@ -17,6 +17,8 @@ const DIST = "dist";
 const ASSETS = join(DIST, "assets");
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(join(ASSETS, "fonts"), { recursive: true });
+mkdirSync(join(ASSETS, "fonts", "pdf"), { recursive: true });
+mkdirSync(join(ASSETS, "pdf", "icons"), { recursive: true });
 mkdirSync(join(ASSETS, "textures"), { recursive: true });
 
 const js = await build({
@@ -60,6 +62,15 @@ for (const [pkg, file] of FONTS) {
 
 for (const file of readdirSync(join("client", "assets", "textures"))) {
   copyFileSync(join("client", "assets", "textures", file), join(ASSETS, "textures", file));
+}
+
+// Printable PDF fonts and section icons (fetched when the user downloads a PDF).
+for (const file of readdirSync(join("client", "assets", "fonts", "pdf"))) {
+  if (!/\.(ttf|txt)$/.test(file)) continue;
+  copyFileSync(join("client", "assets", "fonts", "pdf", file), join(ASSETS, "fonts", "pdf", file));
+}
+for (const file of readdirSync(join("client", "assets", "pdf", "icons"))) {
+  copyFileSync(join("client", "assets", "pdf", "icons", file), join(ASSETS, "pdf", "icons", file));
 }
 
 // Root files: app icons, link preview, manifest.

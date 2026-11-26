@@ -776,16 +776,20 @@ export function App() {
     window.location.href = "/auth/logout";
   };
 
-  const downloadPdf = () => {
-    const blob = buildChecklistPdf(checked);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ocarina-of-time-100-checklist.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  const downloadPdf = async () => {
+    try {
+      const blob = await buildChecklistPdf(checked);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ocarina-of-time-100-checklist.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch {
+      showToast("Couldn't build the PDF", "warn", 2400);
+    }
   };
 
   const filterCount = (status !== "all" ? 1 : 0) + (age !== "all" ? 1 : 0);

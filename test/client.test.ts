@@ -3,7 +3,26 @@ import assert from "node:assert/strict";
 import { WriteQueue, toPatch, type Patch } from "../client/src/lib/sync.ts";
 import { reconcile } from "../client/src/lib/reconcile.ts";
 import { SECTIONS, ALL_ITEMS, TOTAL_ITEMS } from "../client/src/data/catalog.ts";
-import { buildChecklistPdf } from "../client/src/pdf.ts";
+import { readFileSync, readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { buildChecklistPdf, type PdfAssets } from "../client/src/pdf.ts";
+import { TONE_COLOR } from "../client/src/data/look.ts";
+
+function pdfAssets(): PdfAssets {
+  const fonts = fileURLToPath(new URL("../client/assets/fonts/pdf/", import.meta.url));
+  const iconsDir = fileURLToPath(new URL("../client/assets/pdf/icons/", import.meta.url));
+  const icons: Record<string, Uint8Array> = {};
+  for (const file of readdirSync(iconsDir)) {
+    if (file.endsWith(".jpg")) icons[file.replace(/\.jpg$/, "")] = new Uint8Array(readFileSync(join(iconsDir, file)));
+  }
+  return {
+    marcellus: new Uint8Array(readFileSync(join(fonts, "MarcellusSC-Regular.ttf"))),
+    inter: new Uint8Array(readFileSync(join(fonts, "Inter-Regular.ttf"))),
+    icons,
+  };
+}
+
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
@@ -137,12 +156,25 @@ test("every item has an official icon and every area a colour", async () => {
 });
 
 test("the printable PDF is a valid document with a bezel on every page", async () => {
-  const blob = buildChecklistPdf(new Set(["story-1"]));
+  const blob = await buildChecklistPdf(new Set(["story-1"]), pdfAssets());
   const bytes = Buffer.from(await blob.arrayBuffer());
   const text = bytes.toString("latin1");
   assert.equal(text.slice(0, 8), "%PDF-1.4");
   assert.ok(text.includes("%%EOF"));
   assert.ok(text.includes("0.68 0.54 0.22"), "gold bezel stroke");
+  assert.ok(text.includes("/FontFile2"), "fonts are embedded");
+  assert.ok(text.includes("/Identity-H"), "Unicode typography");
+  assert.ok(!text.includes("/Helvetica"), "site fonts, not Helvetica");
+  assert.ok(text.includes("00E9"), "eacute in ToUnicode (Dampé)");
+  assert.ok(text.includes("00B7"), "middle dot in ToUnicode");
+  assert.ok(text.includes("/Subtype /Image"), "section icons");
+  const n = parseInt(TONE_COLOR.light.slice(1), 16);
+  const story = [
+    ((n >> 16) & 255) / 255,
+    ((n >> 8) & 255) / 255,
+    (n & 255) / 255,
+  ].map((c) => c.toFixed(3)).join(" ");
+  assert.ok(text.includes(story), "region colour on section headers");
   const pages = text.match(/\/Type \/Page /g)?.length ?? 0;
   const bezels = text.match(/q\n1 J 1 j/g)?.length ?? 0;
   assert.ok(pages >= 2);

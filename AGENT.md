@@ -46,6 +46,10 @@ Notes for agents working on oot2-tracker.
   gold gradient in `scripts/readme-art.py` for the README.
 - Colours: region tones in `look.ts`, muted, used as accents and section
   headers only. Headings in Marcellus SC, text in Inter.
+- The printable PDF uses the same fonts (embedded Marcellus SC and Inter,
+  not Helvetica), the same region colours on section titles and rules,
+  and the official section icons. Meta lines join area and age with a
+  middle dot, never a dash. The page background stays white for print.
 - Group cards expand and collapse by animating `grid-template-rows`
   (0fr to 1fr), never height, transform or will-change on the card.
   Cards use `isolation: isolate`; the header is opaque with a z-index.

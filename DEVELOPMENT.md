@@ -75,7 +75,7 @@ client/sw.js              service worker template (filled by build.mjs)
 scripts/official-art.py   fetches and converts the official art
 scripts/readme-art.py     draws the README banners and dividers
 scripts/screenshots.mjs   captures docs/screenshots/ from the live site
-client/src/pdf.ts         dependency-free PDF export
+client/src/pdf.ts         dependency-free PDF export (embeds Marcellus SC and Inter)
 server/app.js             HTTP app: static files, OAuth, API, security headers
 server/server.js          entry point: env, listen, session purge, shutdown
 test/                     node:test suites for the server and client logic
