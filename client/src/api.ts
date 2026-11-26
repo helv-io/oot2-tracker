@@ -1,19 +1,31 @@
-// REST client for the oot2-tracker server. Mirrors the action surface the
-// checklist UI was built against (getChecks / setCheck / replaceChecks /
-// resetChecks) plus a session probe used to decide whether account sync
-// applies at all.
+// REST client for the oot2-tracker server.
+
+import type { Patch } from "./lib/sync";
 
 export interface SessionInfo {
   googleConfigured: boolean;
   user: { email: string; name: string | null; picture: string | null } | null;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    });
+  } catch {
+    throw new ApiError(0, "You're offline.");
+  }
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
@@ -24,24 +36,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // keep the status-based message
     }
-    throw new Error(message);
+    throw new ApiError(res.status, message);
   }
   return (await res.json()) as T;
 }
 
-const post = (body: unknown): RequestInit => ({
+const post = (body: unknown, keepalive = false): RequestInit => ({
   method: "POST",
   body: JSON.stringify(body),
+  keepalive,
 });
 
 export const api = {
-  getSession: async (): Promise<SessionInfo> => request<SessionInfo>("/api/auth/me"),
-  getChecks: async (_args: Record<string, never>): Promise<{ checked: string[] }> =>
-    request<{ checked: string[] }>("/api/checks"),
-  setCheck: async (args: { itemKey: string; checked: boolean }): Promise<{ ok: true }> =>
-    request<{ ok: true }>("/api/checks/set", post(args)),
-  replaceChecks: async (args: { itemKeys: string[] }): Promise<{ ok: true }> =>
-    request<{ ok: true }>("/api/checks/replace", post(args)),
-  resetChecks: async (_args: Record<string, never>): Promise<{ ok: true }> =>
-    request<{ ok: true }>("/api/checks/reset", post({})),
+  getSession: () => request<SessionInfo>("/api/auth/me"),
+  getChecks: () => request<{ checked: string[] }>("/api/checks"),
+  patchChecks: (patch: Patch, keepalive = false) => request<{ ok: true }>("/api/checks/patch", post(patch, keepalive)),
+  replaceChecks: (itemKeys: string[]) => request<{ ok: true }>("/api/checks/replace", post({ itemKeys })),
+  resetChecks: () => request<{ ok: true }>("/api/checks/reset", post({})),
+  deleteAccount: () => request<{ ok: true }>("/api/account/delete", post({})),
 };

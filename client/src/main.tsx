@@ -4,7 +4,11 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./theme.css";
 
-const queryClient = new QueryClient();
+// Sync is driven explicitly by the app (see App.tsx), so no background
+// refetching on focus or reconnect.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { refetchOnWindowFocus: false, refetchOnReconnect: false, staleTime: Infinity } },
+});
 
 const rootEl = document.getElementById("root");
 if (!rootEl) {
