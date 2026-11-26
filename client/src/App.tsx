@@ -249,7 +249,7 @@ export function App() {
   const queryClient = useQueryClient();
   // Who is signed in (if anyone) decides whether account sync applies.
   // Until then, progress lives in this browser's storage alone.
-  const sessionQuery = useQuery({ queryKey: ["session"], queryFn: () => api.getSession() });
+  const sessionQuery = useQuery({ queryKey: ["session"], queryFn: () => api.getSession(), retry: 1 });
   const user = sessionQuery.data?.user ?? null;
   const googleConfigured = sessionQuery.data?.googleConfigured ?? false;
   const signedIn = Boolean(user);
@@ -331,6 +331,12 @@ export function App() {
   useEffect(() => {
     if (sessionQuery.isSuccess && !sessionQuery.data.user) setAccountState("signedout");
   }, [sessionQuery.isSuccess, sessionQuery.data]);
+
+  // If the account check itself fails, fall back to the signed-out banner
+  // instead of sitting on "connecting" forever with no way to sign in.
+  useEffect(() => {
+    if (sessionQuery.isError) setAccountState("signedout");
+  }, [sessionQuery.isError]);
 
   const setCheck = useMutation({
     mutationFn: async (args: { itemKey: string; checked: boolean }) => await api.setCheck(args),
@@ -461,6 +467,31 @@ export function App() {
     minHeight: 36,
   });
 
+  // The sign-in button is just a link to /auth/google, so it never needs to
+  // wait for the session probe: show it while the probe is still running
+  // too, and let the banner swap if a signed-in session turns up.
+  const signInButton = (
+    <a
+      href="/auth/google"
+      className="font-display inline-flex items-center gap-2 rounded-lg px-3.5 text-[13px] font-bold tracking-wide"
+      style={{
+        background: "var(--gold)",
+        color: "#241a10",
+        border: "1.5px solid #7c5f14",
+        minHeight: 36,
+        textDecoration: "none",
+      }}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="#241a10"
+          d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3L18.6 21c1.9-1.7 3-4.3 3-8.8zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.2L3.1 16.1A10 10 0 0 0 12 22zM6.4 13.9a6 6 0 0 1 0-3.8L3.1 7.9a10 10 0 0 0 0 8.2l3.3-2.2zM12 5.9c1.5 0 2.8.5 3.8 1.5L18.6 4.6A10 10 0 0 0 3.1 7.9l3.3 2.2C7.2 7.7 9.4 5.9 12 5.9z"
+        />
+      </svg>
+      Sign in with Google
+    </a>
+  );
+
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)" }}>
       {/* ---------- Hero ---------- */}
@@ -523,33 +554,16 @@ export function App() {
                     ? " Sign in with Google and your journey follows you to any screen."
                     : " Google sign-in isn't switched on for this shrine yet."}
                 </p>
-                {googleConfigured && (
-                  <a
-                    href="/auth/google"
-                    className="font-display inline-flex items-center gap-2 rounded-lg px-3.5 text-[13px] font-bold tracking-wide"
-                    style={{
-                      background: "var(--gold)",
-                      color: "#241a10",
-                      border: "1.5px solid #7c5f14",
-                      minHeight: 36,
-                      textDecoration: "none",
-                    }}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fill="#241a10"
-                        d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3L18.6 21c1.9-1.7 3-4.3 3-8.8zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.2L3.1 16.1A10 10 0 0 0 12 22zM6.4 13.9a6 6 0 0 1 0-3.8L3.1 7.9a10 10 0 0 0 0 8.2l3.3-2.2zM12 5.9c1.5 0 2.8.5 3.8 1.5L18.6 4.6A10 10 0 0 0 3.1 7.9l3.3 2.2C7.2 7.7 9.4 5.9 12 5.9z"
-                      />
-                    </svg>
-                    Sign in with Google
-                  </a>
-                )}
+                {googleConfigured && signInButton}
               </div>
             )}
             {accountState === "connecting" && (
-              <p className="text-[13px] leading-snug text-[#d8c9a3]">
-                Reaching your account… until then, every tick is saved on this device.
-              </p>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-[13px] leading-snug text-[#d8c9a3]">
+                  Reaching your account… until then, every tick is saved on this device.
+                </p>
+                {signInButton}
+              </div>
             )}
             {accountState === "synced" && (
               <div className="flex flex-col items-center gap-1.5">
