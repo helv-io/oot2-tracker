@@ -12,6 +12,11 @@ await build({
   entryPoints: ["client/src/main.tsx"],
   bundle: true,
   format: "esm",
+  // The sources use JSX without importing React, so the automatic runtime
+  // is required — esbuild's default classic transform emits bare
+  // React.createElement calls that throw "React is not defined" in the
+  // browser and leave the page blank.
+  jsx: "automatic",
   target: "es2022",
   minify: true,
   sourcemap: false,
