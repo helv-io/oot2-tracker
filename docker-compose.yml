@@ -1,11 +1,8 @@
 # Komodo stack "oot" — deployed on yolo.
 #
 # Image: ghcr.io/helv-io/oot2-tracker (published by .github/workflows/release.yml
-# on version tags, same pattern as skgate/ghook). Until the GHCR package
-# exists, Komodo builds the image from source instead: a copy of this repo
-# lives in ./app-src inside the stack's run directory on the server.
-# Once the package is published, delete the `build:` block and the stack
-# pulls the image like every other helv-io stack.
+# on version tags, same pattern as skgate/ghook). The stack pulls the image;
+# it built from source only until the package first published (2026-11-26).
 #
 # SQLite lives in /docker/oot (bind-mounted to /data in the container).
 # Google OAuth credentials arrive via stack environment variables; when
@@ -16,13 +13,6 @@
 # the only accounts are the users' own Google sign-ins for progress sync.
 services:
   oot:
-    build:
-      # Relative to the stack's run directory on the server, where a copy
-      # of this repo lives in ./app-src (BuildKit refuses contexts outside
-      # the project directory without extra entitlements Komodo doesn't
-      # pass, so the source rides along inside the stack directory).
-      context: ./app-src
-      dockerfile: Dockerfile
     image: ghcr.io/helv-io/oot2-tracker:latest
     container_name: oot
     restart: always
