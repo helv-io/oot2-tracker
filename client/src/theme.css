@@ -95,6 +95,46 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Fixed atmosphere behind the page: parchment/forest texture, a soft
+   vignette, and (in a canvas sibling) Kokiri fairy lights. No
+   backdrop-filter, and no transforms on content, so Safari does not
+   leave ghost layers while scrolling. */
+.site-texture,
+.site-fireflies {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.site-fireflies { z-index: -1; }
+.site-texture {
+  z-index: -2;
+  background-image:
+    var(--vignette),
+    var(--foliage),
+    var(--grain);
+  background-repeat: no-repeat, repeat, repeat;
+  background-size: auto, 900px 900px, 160px 160px;
+  background-position: center, center, 0 0;
+}
+:root {
+  --vignette: radial-gradient(ellipse at 50% 32%, transparent 42%, rgba(60, 42, 16, 0.16) 100%);
+  --foliage: url("/assets/textures/foliage-light.webp");
+  --grain: url("/assets/textures/grain-light.webp");
+}
+:root[data-theme="dark"] {
+  --vignette: radial-gradient(ellipse at 50% 32%, transparent 38%, rgba(2, 6, 4, 0.42) 100%);
+  --foliage: url("/assets/textures/foliage-dark.webp");
+  --grain: url("/assets/textures/grain-dark.webp");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --vignette: radial-gradient(ellipse at 50% 32%, transparent 38%, rgba(2, 6, 4, 0.42) 100%);
+    --foliage: url("/assets/textures/foliage-dark.webp");
+    --grain: url("/assets/textures/grain-dark.webp");
+  }
+}
+
+
 .font-display {
   font-family: var(--font-display);
   font-weight: 400 !important;

@@ -17,6 +17,7 @@ const DIST = "dist";
 const ASSETS = join(DIST, "assets");
 rmSync(DIST, { recursive: true, force: true });
 mkdirSync(join(ASSETS, "fonts"), { recursive: true });
+mkdirSync(join(ASSETS, "textures"), { recursive: true });
 
 const js = await build({
   entryPoints: ["client/src/main.tsx"],
@@ -55,6 +56,10 @@ const FONTS = [
 ];
 for (const [pkg, file] of FONTS) {
   copyFileSync(join("node_modules", pkg, "files", file), join(ASSETS, "fonts", file));
+}
+
+for (const file of readdirSync(join("client", "assets", "textures"))) {
+  copyFileSync(join("client", "assets", "textures", file), join(ASSETS, "textures", file));
 }
 
 // Root files: app icons, link preview, manifest.

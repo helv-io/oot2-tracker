@@ -16,6 +16,7 @@ import { ITEM_ICON, eraGroups, journeyGroups, locationGroups, type ViewGroup } f
 import { TONE_COLOR, placeOf, type Tone } from "./data/look";
 import { ART } from "./data/art.generated";
 import { Sprite } from "./components/Art";
+import { Fireflies } from "./components/Fireflies";
 import { buildChecklistPdf } from "./pdf";
 import { WriteQueue, type QueueStatus } from "./lib/sync";
 import { reconcile, sameSet } from "./lib/reconcile";
@@ -889,7 +890,9 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
+    <div className="app-shell min-h-screen" style={{ color: "var(--text)" }}>
+      <div className="site-texture" aria-hidden="true" />
+      <Fireflies />
       <a href="#checklist" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-black">
         Skip to the checklist
       </a>

@@ -50,6 +50,11 @@ Notes for agents working on oot2-tracker.
   (0fr to 1fr), never height, transform or will-change on the card.
   Cards use `isolation: isolate`; the header is opaque with a z-index.
   Do not put `backdrop-filter` or blur on sticky or scrolling chrome.
+- The site atmosphere is a fixed texture layer plus a firefly canvas
+  behind the page (`pointer-events: none`, no backdrop-filter, no
+  transforms on content). Keep both decorative and cheap. Pause the
+  canvas on hidden tabs; under `prefers-reduced-motion` draw a still
+  frame or nothing.
 
 ## How it fits together
 
