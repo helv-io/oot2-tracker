@@ -1,0 +1,78 @@
+# Publishes ghcr.io/helv-io/oot2-tracker on every version tag (v*),
+# linux/amd64 and linux/arm64 — the same release pattern as the other
+# helv-io projects (skgate, ghook).
+#
+# Tags on a stable vX.Y.Z:
+#   vX.Y.Z  X.Y.Z  latest  <sha12>
+#
+# A manual run (workflow_dispatch) does the same but tags the result
+# ci-test-<run id> only, never a version or latest.
+#
+# Uses the built-in GITHUB_TOKEN; no other secret is needed.
+# The first push creates the package; set its visibility to public under
+# the repository's Packages settings so servers can pull it anonymously.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    name: build and push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        shell: bash
+        run: |
+          SHA12="$(git rev-parse --short=12 HEAD)"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            SEMVER="${VERSION#v}"
+            if [[ "$VERSION" == *-* ]]; then
+              # Pre-release: version tags only, never latest.
+              TAGS="${{ env.IMAGE }}:${VERSION},${{ env.IMAGE }}:${SEMVER},${{ env.IMAGE }}:sha-${SHA12}"
+            else
+              TAGS="${{ env.IMAGE }}:${VERSION},${{ env.IMAGE }}:${SEMVER},${{ env.IMAGE }}:latest,${{ env.IMAGE }}:sha-${SHA12}"
+            fi
+          else
+            TAGS="${{ env.IMAGE }}:ci-test-${{ github.run_id }}"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}

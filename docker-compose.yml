@@ -1,0 +1,55 @@
+# Komodo stack "oot" — deployed on yolo.
+#
+# Image: ghcr.io/helv-io/oot2-tracker (published by .github/workflows/release.yml
+# on version tags, same pattern as skgate/ghook). Until the GHCR package
+# exists, Komodo builds the image from source instead: a copy of this repo
+# lives in ./app-src inside the stack's run directory on the server.
+# Once the package is published, delete the `build:` block and the stack
+# pulls the image like every other helv-io stack.
+#
+# SQLite lives in /docker/oot (bind-mounted to /data in the container).
+# Google OAuth credentials arrive via stack environment variables; when
+# they are unset the app runs fully in device-only (logged-out) mode.
+#
+# Ingress is Traefik via Docker labels, mirroring the ghook stack. This
+# route intentionally has NO Authelia middleware: the app is public, and
+# the only accounts are the users' own Google sign-ins for progress sync.
+services:
+  oot:
+    build:
+      # Relative to the stack's run directory on the server, where a copy
+      # of this repo lives in ./app-src (BuildKit refuses contexts outside
+      # the project directory without extra entitlements Komodo doesn't
+      # pass, so the source rides along inside the stack directory).
+      context: ./app-src
+      dockerfile: Dockerfile
+    image: ghcr.io/helv-io/oot2-tracker:latest
+    container_name: oot
+    restart: always
+    environment:
+      PORT: "8080"
+      DB_PATH: /data/oot.sqlite
+      PUBLIC_URL: https://oot.helv.io
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - /docker/oot:/data
+    # Traefik reaches public apps over the shared external "web" network
+    # (the same one the other helv.io stacks join).
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.oot.rule=Host(`oot.helv.io`)
+      - traefik.http.routers.oot.entryPoints=websecure
+      - traefik.http.routers.oot.service=oot
+      - traefik.http.services.oot.loadbalancer.server.port=8080
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  web:
+    external: true

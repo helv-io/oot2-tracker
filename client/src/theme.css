@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import "tailwindcss";
+@import "tailwindcss-safe-area";
+
+@theme {
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 36px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 40px;
+  --text-5xl: 48px;
+  --text-5xl--line-height: 52px;
+  --font-display: "Cinzel", "Times New Roman", serif;
+  --font-body: "Alegreya", Georgia, serif;
+}
+
+:root {
+  color-scheme: light dark;
+  /* Parchment field-guide palette (light) */
+  --bg: #e9dcbc;
+  --bg-deep: #dcc99c;
+  --surface: #f5ecd4;
+  --surface-alt: #eee0bd;
+  --text: #2a1e10;
+  --dim: #6f5b38;
+  --border: #c3ab72;
+  --accent: #8a6d1f;
+  --gold: #c9a227;
+  --gold-bright: #e7c65a;
+  --heart: #b03030;
+  --forest: #1e3a29;
+  --radius: 10px;
+  --space-surface: var(--surface);
+  --space-surface-alt: var(--surface-alt);
+  --space-muted: var(--dim);
+  --space-border: var(--border);
+  --space-accent: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Night in Hyrule (dark) */
+    --bg: #101c14;
+    --bg-deep: #0a120c;
+    --surface: #1a2b20;
+    --surface-alt: #223626;
+    --text: #ecdfc0;
+    --dim: #a8946a;
+    --border: #3d5a43;
+    --accent: #d8b84a;
+    --gold: #c9a227;
+    --gold-bright: #e7c65a;
+    --heart: #d95f57;
+    --forest: #0d1710;
+  }
+}
+
+body {
+  font-family: var(--font-body);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Phone tap targets: at least 32px tall. */
+@layer base {
+  button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) {
+    min-height: 2rem;
+  }
+}
