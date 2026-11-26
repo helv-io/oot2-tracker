@@ -1,0 +1,103 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { WriteQueue, toPatch, type Patch } from "../client/src/lib/sync.ts";
+import { reconcile } from "../client/src/lib/reconcile.ts";
+import { SECTIONS, ALL_ITEMS, TOTAL_ITEMS } from "../client/src/data/catalog.ts";
+
+const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
+
+test("coalesces rapid ticks into one batch, last state wins", async () => {
+  const sent: Patch[] = [];
+  const q = new WriteQueue(async (p) => void sent.push(p), { debounceMs: 1 });
+  q.enqueue("a", true);
+  q.enqueue("b", true);
+  q.enqueue("a", false);
+  await tick(20);
+  assert.deepEqual(sent, [{ add: ["b"], remove: ["a"] }]);
+  assert.equal(q.idle, true);
+});
+
+test("keeps batches in order and never overlaps them", async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const sent: Patch[] = [];
+  const q = new WriteQueue(
+    async (p) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await tick(10);
+      sent.push(p);
+      inFlight--;
+    },
+    { debounceMs: 1 },
+  );
+  q.enqueue("a", true);
+  await tick(3);
+  q.enqueue("a", false); // queued while the first batch is in flight
+  await tick(60);
+  assert.equal(maxInFlight, 1);
+  assert.deepEqual(sent, [
+    { add: ["a"], remove: [] },
+    { add: [], remove: ["a"] },
+  ]);
+});
+
+test("retries failed batches, and newer ticks override them", async () => {
+  let fail = true;
+  const sent: Patch[] = [];
+  const statuses: string[] = [];
+  const q = new WriteQueue(
+    async (p) => {
+      if (fail) throw new Error("offline");
+      sent.push(p);
+    },
+    { debounceMs: 1, minRetryMs: 5, onStatus: (s) => statuses.push(s) },
+  );
+  q.enqueue("a", true);
+  q.enqueue("b", true);
+  await tick(3);
+  q.enqueue("a", false);
+  fail = false;
+  await tick(40);
+  assert.deepEqual(sent, [{ add: ["b"], remove: ["a"] }]);
+  assert.ok(statuses.includes("error"));
+  assert.equal(statuses.at(-1), "idle");
+});
+
+test("onError can drop writes instead of retrying", async () => {
+  let calls = 0;
+  const q = new WriteQueue(
+    async () => {
+      calls++;
+      throw new Error("401");
+    },
+    { debounceMs: 1, minRetryMs: 1, onError: () => false },
+  );
+  q.enqueue("a", true);
+  await tick(20);
+  assert.equal(calls, 1);
+  assert.equal(q.idle, true);
+});
+
+test("toPatch splits adds and removes", () => {
+  assert.deepEqual(toPatch(new Map([["x", true], ["y", false]])), { add: ["x"], remove: ["y"] });
+});
+
+test("reconcile decides who wins", () => {
+  const s = (...a: string[]) => new Set(a);
+  assert.equal(reconcile(s("a"), s("a")), "same");
+  assert.equal(reconcile(s(), s("a")), "pull");
+  assert.equal(reconcile(s("a"), s()), "push");
+  assert.equal(reconcile(s("a"), s("b")), "conflict");
+});
+
+test("catalog is complete and well formed", () => {
+  assert.equal(TOTAL_ITEMS, 272);
+  const ids = ALL_ITEMS.map((i) => i.id);
+  assert.equal(new Set(ids).size, ids.length, "ids are unique");
+  for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9-]{0,63}$/, `server accepts ${id}`);
+  const count = (id: string) => SECTIONS.find((s) => s.id === id)?.items.length;
+  assert.equal(count("skulltulas"), 100);
+  assert.equal(count("hearts"), 36);
+  for (const item of ALL_ITEMS) assert.ok(item.name && item.detail, item.id);
+});

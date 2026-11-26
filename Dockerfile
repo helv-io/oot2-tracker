@@ -17,6 +17,7 @@ LABEL org.opencontainers.image.title="oot2-tracker" \
       org.opencontainers.image.url="https://github.com/helv-io/oot2-tracker" \
       org.opencontainers.image.licenses="MIT"
 ENV NODE_ENV=production \
+    TZ=America/New_York \
     PORT=8080 \
     DB_PATH=/data/oot.sqlite \
     PUBLIC_URL=https://oot.helv.io
@@ -30,5 +31,5 @@ VOLUME /data
 EXPOSE 8080
 USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+  CMD ["node", "server/healthcheck.js"]
 CMD ["node", "server/server.js"]

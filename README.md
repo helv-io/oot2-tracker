@@ -1,88 +1,92 @@
-# oot2-tracker — Ocarina of Time 100% Checklist
+# oot2-tracker
 
 The ultimate 100% checklist for *The Legend of Zelda: Ocarina of Time*
-(Nintendo Switch 2 remake), running at **https://oot.helv.io**.
+on Nintendo Switch 2. Live at **https://oot.helv.io**.
 
-272 individually described deeds in 17 sections — all 100 Gold Skulltulas
-and all 36 Pieces of Heart as separate entries, the main quest, capacity
-upgrades, all 10 soft-soil patches, 4 bottles, 13 songs, 6 Great Fairies,
-both trading sequences, the Gerudo Training Ground and Ice Arrows,
-one-time merchant deals, merchant & minigame master challenges, and
-Easter eggs. Every deed can be browsed three ways over one shared check
-state: **Journey** (by category), **By place** (35 location groups), and
-**By era** (Child Link 124 / Adult Link 114 / Either 34). Search, to-do /
-done and era filters, per-group progress, and a printable PDF export of
-the checklist are built in.
+272 deeds in 17 sections: the main quest, all 100 Gold Skulltulas and
+36 Pieces of Heart, upgrades, soft soil, bottles, songs, Great Fairies,
+both trading sequences, the Gerudo Training Ground, merchant deals,
+minigame challenges and Easter eggs.
 
-## Progress & sign-in
+- **Three views over one set of ticks:** Journey, Places and Eras.
+- **Search and filters** by status and by Child or Adult Link.
+- **Printable PDF** of the whole list with your ticks.
+- **Works signed out:** progress autosaves in the browser.
+- **Sign in with Google** to sync across devices. If a device and the
+  account disagree on first sign-in, you choose: merge, keep the
+  device, or keep the account.
 
-- **Logged out:** progress is saved in the browser's local storage on
-  that device. Everything works.
-- **Signed in with Google:** progress is also stored server-side per
-  Google account (SQLite), so it follows the user across devices.
-- **Reconciling:** when a signed-in account's progress first loads, if
-  one side (device or account) is empty the other wins automatically.
-  If both hold *different* progress, an on-theme modal offers **Push**
-  (device wins), **Pull** (account wins), or **Merge** (union of both).
+## Run it
 
-## Running it
-
-The server is plain Node.js (>= 22) with zero runtime dependencies
-(static file serving + `node:sqlite`). The client is a React app built
-with esbuild + Tailwind CSS v4.
+Node 24, no runtime dependencies (`node:http` + `node:sqlite`). The
+client is React, bundled with esbuild and Tailwind CSS v4.
 
 ```sh
-npm install
-npm run build     # -> dist/
-npm start         # serves on $PORT (default 8080)
+npm ci
+npm run build    # -> dist/
+npm run dev      # http://localhost:8080, database in ./data
+npm run check    # typecheck + tests + build
 ```
 
-### Environment variables
+### Environment
 
-| Variable               | Default                  | Purpose                                             |
-| ---------------------- | ------------------------ | --------------------------------------------------- |
-| `PORT`                 | `8080`                   | Listen port                                         |
-| `DB_PATH`              | `/data/oot.sqlite`       | SQLite file for users, sessions, checks             |
-| `PUBLIC_URL`           | `https://oot.helv.io`    | Public origin; OAuth redirect is derived from it    |
-| `GOOGLE_CLIENT_ID`     | —                        | Google OAuth client id (login disabled when unset)  |
-| `GOOGLE_CLIENT_SECRET` | —                        | Google OAuth client secret (login disabled when unset) |
+| Variable               | Default               | Purpose                                          |
+| ---------------------- | --------------------- | ------------------------------------------------ |
+| `PORT`                 | `8080`                | Listen port                                      |
+| `DB_PATH`              | `/data/oot.sqlite`    | SQLite file for users, sessions and ticks        |
+| `PUBLIC_URL`           | `https://oot.helv.io` | Public origin; the OAuth redirect derives from it |
+| `GOOGLE_CLIENT_ID`     | unset                 | Google OAuth client id; sign-in is off without it |
+| `GOOGLE_CLIENT_SECRET` | unset                 | Google OAuth client secret                       |
 
-### Google OAuth setup
+### Google sign-in
 
-In the Google Cloud Console (APIs & Services → Credentials), create an
-**OAuth 2.0 Client ID** of type **Web application** with:
+Create an **OAuth 2.0 Client ID** of type **Web application** in Google
+Cloud Console with:
 
-- **Authorized JavaScript origin:** `https://oot.helv.io`
-- **Authorized redirect URI:** `https://oot.helv.io/auth/google/callback`
+- Authorized JavaScript origin: `https://oot.helv.io`
+- Authorized redirect URI: `https://oot.helv.io/auth/google/callback`
 
-Put the resulting client id and secret in `GOOGLE_CLIENT_ID` /
-`GOOGLE_CLIENT_SECRET` (stack environment in Komodo) and restart the
-app. No code change is needed — the sign-in button activates as soon as
-both variables are set.
+Set the id and secret as the Komodo stack's environment and redeploy.
+
+## API
+
+All JSON. Writes need the session cookie and a same-origin request.
+
+| Route                        | What it does                                   |
+| ---------------------------- | ---------------------------------------------- |
+| `GET /api/auth/me`           | Whether sign-in is on, and who is signed in    |
+| `GET /api/checks`            | The signed-in user's ticked item ids           |
+| `POST /api/checks/patch`     | `{ add: [...], remove: [...] }` batch update   |
+| `POST /api/checks/set`       | `{ itemKey, checked }` single update           |
+| `POST /api/checks/replace`   | `{ itemKeys: [...] }` replace everything       |
+| `POST /api/checks/reset`     | Clear all ticks                                |
+| `POST /api/account/delete`   | Delete the account, its ticks and sessions     |
+| `GET /healthz`               | Liveness, including a database ping            |
 
 ## Deployment
 
-- Image: `ghcr.io/helv-io/oot2-tracker`, built and pushed by
-  `.github/workflows/release.yml` on version tags (`v*`) — the same
-  release pattern as the other helv-io projects (tags: `vX.Y.Z`, `X.Y.Z`,
-  `latest`, short SHA; multi-arch amd64 + arm64). Until the package
-  exists, the Komodo stack builds the image from source on the server
-  (see the `build:` block in `docker-compose.yml`).
+- `.github/workflows/ci.yml` type-checks, tests, builds and smoke-tests
+  the Docker image on every push and pull request.
+- `.github/workflows/release.yml` runs CI, then publishes
+  `ghcr.io/helv-io/oot2-tracker` for amd64 and arm64 on every `v*` tag
+  (`vX.Y.Z`, `X.Y.Z`, `latest`, `sha-…`).
 - On yolo it runs as the Komodo stack **`oot`** using
-  `docker-compose.yml` from this repo, with the SQLite database in
-  `/docker/oot` (bind-mounted to `/data`).
-- The `oot.helv.io` route is public and intentionally has **no Authelia
-  middleware** — the app is a public fan checklist; the only accounts
-  are the users' own Google sign-ins for progress sync.
+  `docker-compose.yml`, with SQLite in `/docker/oot`. Komodo auto-pulls
+  and auto-updates `latest`.
+- `oot.helv.io` is public, with no Authelia: the only accounts are the
+  players' own Google sign-ins.
 
 ## Layout
 
 ```
-client/          React client (catalog data in client/src/data/catalog.ts)
-server/          server.js — HTTP server, Google OAuth, SQLite progress API
-build.mjs        esbuild + Tailwind production build -> dist/
-Dockerfile       multi-stage image build
-docker-compose.yml  Komodo stack definition
+client/src/App.tsx        the whole UI
+client/src/data/          catalog.ts holds every deed; views.ts regroups them
+client/src/lib/           sync write queue and first-load reconcile logic
+client/src/pdf.ts         dependency-free PDF export
+server/app.js             HTTP app: static files, OAuth, API, security headers
+server/server.js          entry point: env, listen, session purge, shutdown
+test/                     node:test suites for the server and client logic
+build.mjs                 production build -> dist/
 ```
 
 A fan-made labor of love. Not affiliated with Nintendo.
