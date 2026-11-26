@@ -92,12 +92,45 @@ test("reconcile decides who wins", () => {
 });
 
 test("catalog is complete and well formed", () => {
-  assert.equal(TOTAL_ITEMS, 272);
+  assert.equal(TOTAL_ITEMS, 274);
   const ids = ALL_ITEMS.map((i) => i.id);
   assert.equal(new Set(ids).size, ids.length, "ids are unique");
   for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9-]{0,63}$/, `server accepts ${id}`);
   const count = (id: string) => SECTIONS.find((s) => s.id === id)?.items.length;
   assert.equal(count("skulltulas"), 100);
   assert.equal(count("hearts"), 36);
+  // The Switch 2 remake adds a fifth bottle (the Potion Shop bug).
+  assert.equal(count("bottles"), 5);
+  assert.equal(count("fairies"), 6);
   for (const item of ALL_ITEMS) assert.ok(item.name && item.detail, item.id);
+});
+
+test("share codes round-trip and survive catalog growth", async () => {
+  const { encodeProgress, decodeProgress } = await import("../client/src/lib/share.ts");
+  const all = ALL_ITEMS.map((i) => i.id);
+  const known = new Set(all);
+  const done = new Set(all.filter((_, i) => i % 3 === 0));
+  const code = encodeProgress(done, all);
+  assert.match(code, /^[A-Za-z0-9_-]+$/);
+  assert.ok(code.length < 120, `short enough for a link (${code.length})`);
+  assert.deepEqual(decodeProgress(code, known), done);
+  // An older catalog (fewer items) still decodes against the current one.
+  const older = all.filter((id) => id !== "bot-5" && id !== "egg-15");
+  const oldCode = encodeProgress(["bot-4", "gs-100"], older);
+  assert.deepEqual(decodeProgress(oldCode, known), new Set(["bot-4", "gs-100"]));
+  assert.equal(decodeProgress("not base64!", known), null);
+  assert.equal(decodeProgress("", known), null);
+});
+
+test("every item has an official icon and every area a colour", async () => {
+  const { readdirSync } = await import("node:fs");
+  const { ITEM_ICONS, SECTION_LOOK, PLACES, ERA_LOOK } = await import("../client/src/data/look.ts");
+  const files = new Set(readdirSync(new URL("../client/assets/official/icons/", import.meta.url)).map((f) => f.replace(/\.webp$/, "")));
+  for (const sec of SECTIONS) assert.ok(files.has(SECTION_LOOK[sec.id]?.icon), `section ${sec.id}`);
+  for (const [id, icon] of Object.entries(ITEM_ICONS)) {
+    assert.ok(ALL_ITEMS.some((i) => i.id === id), `icon for a real item: ${id}`);
+    assert.ok(files.has(icon), `${id} -> ${icon}`);
+  }
+  for (const place of [...Object.values(PLACES), ...Object.values(ERA_LOOK)]) assert.ok(files.has(place.icon), place.icon);
+  for (const item of ALL_ITEMS) assert.ok(!item.area || PLACES[item.area], `area has a colour: ${item.area}`);
 });

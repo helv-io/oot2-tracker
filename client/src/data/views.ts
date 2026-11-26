@@ -4,25 +4,23 @@
 // and by the era of Link who does them — so a stone or medallion shows
 // up on the journey, in its home town, and in its era's list alike.
 
-import {
-  ALL_ITEMS,
-  SECTIONS,
-  type CatalogItem,
-  type IconKind,
-} from "./catalog";
+import { ALL_ITEMS, SECTIONS, type CatalogItem } from "./catalog";
+import { ERA_LOOK, ITEM_ICONS, SECTION_LOOK, placeOf, type Tone } from "./look";
 
 export interface ViewGroup {
   key: string;
   title: string;
-  icon: IconKind | "pin";
+  /** Official icon name (see look.ts). */
+  icon: string;
+  tone: Tone;
   blurb?: string;
   items: CatalogItem[];
 }
 
-/** The icon of the journey section each item belongs to. */
-export const ITEM_ICON: ReadonlyMap<string, IconKind> = new Map(
+/** Each item's own icon, falling back to its journey section's emblem. */
+export const ITEM_ICON: ReadonlyMap<string, string> = new Map(
   SECTIONS.flatMap((sec) =>
-    sec.items.map((item) => [item.id, sec.icon] as const),
+    sec.items.map((item) => [item.id, ITEM_ICONS[item.id] ?? SECTION_LOOK[sec.id]?.icon ?? "triforce"] as const),
   ),
 );
 
@@ -31,7 +29,8 @@ export function journeyGroups(): ViewGroup[] {
   return SECTIONS.map((sec) => ({
     key: sec.id,
     title: sec.title,
-    icon: sec.icon,
+    icon: SECTION_LOOK[sec.id]?.icon ?? "triforce",
+    tone: SECTION_LOOK[sec.id]?.tone ?? "light",
     blurb: sec.blurb,
     items: sec.items,
   }));
@@ -58,7 +57,8 @@ export function locationGroups(): ViewGroup[] {
   return order.map((area, i) => ({
     key: `loc-${i}`,
     title: area,
-    icon: "pin" as const,
+    icon: placeOf(area).icon,
+    tone: placeOf(area).tone,
     items: byArea.get(area) ?? [],
   }));
 }
@@ -78,24 +78,24 @@ export function eraGroups(): ViewGroup[] {
   return [
     {
       key: "era-child",
+      ...ERA_LOOK["era-child"],
       title: "Child Link",
-      icon: "quest" as const,
       blurb:
         "Everything young Link can do before the Master Sword sleeps him for seven years — the three Spiritual Stones live here, alongside every bean planted and every soft-soil patch tended.",
       items: buckets.child,
     },
     {
       key: "era-adult",
+      ...ERA_LOOK["era-adult"],
       title: "Adult Link",
-      icon: "quest" as const,
       blurb:
         "Seven years later: the five Medallions, the great temples, Epona, and every deed that needs a grown hero's reach.",
       items: buckets.adult,
     },
     {
       key: "era-either",
+      ...ERA_LOOK["era-either"],
       title: "Either Era",
-      icon: "quest" as const,
       blurb:
         "Deeds that belong to both eras — or span them, like a bean planted by a child and ridden by the man he becomes.",
       items: buckets.either,

@@ -24,6 +24,9 @@ before(async () => {
   writeFileSync(join(dist, "index.html"), "<!doctype html><title>t</title>");
   writeFileSync(join(dist, "assets", "main-ABCDEFGH.js"), "console.log(1)");
   writeFileSync(join(dist, "assets", "main-ABCDEFGH.js.gz"), gzipSync("console.log(1)"));
+  mkdirSync(join(dist, "assets", "img"), { recursive: true });
+  writeFileSync(join(dist, "assets", "img", "token-QTYR26QV.webp"), "RIFF");
+  writeFileSync(join(dist, "sw.js"), "self.addEventListener('fetch', () => {});");
   writeFileSync(join(dir, "secret.txt"), "nope");
   app = createApp({
     dbPath: join(dir, "db.sqlite"),
@@ -72,7 +75,9 @@ const json = (cookie, body) => ({
 test("healthz answers ok", async () => {
   const r = await fetch(`${base}/healthz`);
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { ok: true });
+  const body = await r.json();
+  assert.equal(body.ok, true);
+  assert.match(body.version, /^\d+\.\d+\.\d+/);
 });
 
 test("security headers are set", async () => {
@@ -88,6 +93,17 @@ test("hashed assets are immutable and served precompressed", async () => {
   assert.match(r.headers.get("cache-control"), /immutable/);
   assert.equal(r.headers.get("content-encoding"), "gzip");
   assert.equal(await r.text(), "console.log(1)");
+});
+
+test("official art is cached forever; the service worker never is", async () => {
+  const img = await fetch(`${base}/assets/img/token-QTYR26QV.webp`);
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get("content-type"), "image/webp");
+  assert.match(img.headers.get("cache-control"), /immutable/);
+  const sw = await fetch(`${base}/sw.js`);
+  assert.equal(sw.status, 200);
+  assert.equal(sw.headers.get("cache-control"), "no-cache");
+  assert.match(sw.headers.get("content-type"), /javascript/);
 });
 
 test("missing assets 404 instead of returning the app shell", async () => {

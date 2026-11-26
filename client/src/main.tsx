@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { registerServiceWorker } from "./lib/pwa";
 import "./theme.css";
 
 // Sync is driven explicitly by the app (see App.tsx), so no background
@@ -14,6 +15,8 @@ const rootEl = document.getElementById("root");
 if (!rootEl) {
   throw new Error("missing #root element");
 }
+
+registerServiceWorker();
 
 createRoot(rootEl).render(
   <StrictMode>

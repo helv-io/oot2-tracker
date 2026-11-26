@@ -1,9 +1,18 @@
 {
+  "id": "/",
   "name": "Ocarina of Time 100% Checklist",
   "short_name": "OoT 100%",
+  "description": "Every Gold Skulltula, Piece of Heart, bottle, song and secret in the Switch 2 remake, tracked.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#101c14",
-  "theme_color": "#1e3a29",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "orientation": "portrait",
+  "background_color": "#0e1411",
+  "theme_color": "#0e1411",
+  "categories": ["games", "utilities"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

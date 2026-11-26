@@ -1,0 +1,63 @@
+# Refreshes docs/screenshots/ from the live site after every release.
+# Waits for Komodo to roll the new image out (via /healthz), captures
+# desktop and mobile shots with Playwright, and commits them to main.
+
+name: Screenshots
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Wait for the release to be live
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        run: |
+          want="${{ github.event.workflow_run.head_branch }}"
+          want="${want#v}"
+          for i in $(seq 1 60); do
+            got="$(curl -fsS https://oot.helv.io/healthz | node -pe 'JSON.parse(require("fs").readFileSync(0)).version' 2>/dev/null || true)"
+            echo "live: ${got:-?}  want: $want"
+            [ "$got" = "$want" ] && exit 0
+            sleep 20
+          done
+          echo "::error::oot.helv.io never reported $want"
+          exit 1
+
+      - name: Capture
+        run: |
+          npm i --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+          node scripts/screenshots.mjs
+
+      - name: Commit
+        shell: bash
+        run: |
+          git add docs/screenshots
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: refresh screenshots"
+          git push origin HEAD:main

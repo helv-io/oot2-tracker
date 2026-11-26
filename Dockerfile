@@ -12,7 +12,7 @@ RUN npm run build
 
 FROM node:24-slim
 LABEL org.opencontainers.image.title="oot2-tracker" \
-      org.opencontainers.image.description="Ocarina of Time 100% checklist — 272 deeds, three views, per-user progress with Google sign-in." \
+      org.opencontainers.image.description="Ocarina of Time 100% checklist — 274 deeds, three views, per-user progress with Google sign-in." \
       org.opencontainers.image.source="https://github.com/helv-io/oot2-tracker" \
       org.opencontainers.image.url="https://github.com/helv-io/oot2-tracker" \
       org.opencontainers.image.licenses="MIT"

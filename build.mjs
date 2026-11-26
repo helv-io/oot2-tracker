@@ -34,7 +34,10 @@ const js = await build({
   define: { "process.env.NODE_ENV": '"production"' },
   logLevel: "info",
   // theme.css is compiled by the Tailwind CLI below, not by esbuild.
-  loader: { ".css": "empty" },
+  // Official art is emitted as hashed files and imported as URLs.
+  loader: { ".css": "empty", ".webp": "file", ".avif": "file" },
+  assetNames: "img/[name]-[hash]",
+  publicPath: "/assets",
 });
 const jsFile = Object.keys(js.metafile.outputs).find((p) => p.endsWith(".js"));
 const jsName = jsFile.split("/").pop();
@@ -47,30 +50,58 @@ renameSync(cssTmp, join(ASSETS, cssName));
 
 // Self-hosted fonts (no Google Fonts request, so no third-party calls).
 const FONTS = [
-  ["cinzel", "cinzel-latin-600-normal.woff2"],
-  ["cinzel", "cinzel-latin-700-normal.woff2"],
-  ["cinzel", "cinzel-latin-800-normal.woff2"],
-  ["alegreya", "alegreya-latin-400-normal.woff2"],
-  ["alegreya", "alegreya-latin-400-italic.woff2"],
-  ["alegreya", "alegreya-latin-600-normal.woff2"],
-  ["alegreya", "alegreya-latin-700-normal.woff2"],
+  ["@fontsource/marcellus-sc", "marcellus-sc-latin-400-normal.woff2"],
+  ["@fontsource-variable/inter", "inter-latin-wght-normal.woff2"],
 ];
 for (const [pkg, file] of FONTS) {
-  copyFileSync(join("node_modules", "@fontsource", pkg, "files", file), join(ASSETS, "fonts", file));
+  copyFileSync(join("node_modules", pkg, "files", file), join(ASSETS, "fonts", file));
 }
 
-for (const file of ["favicon.svg", "manifest.webmanifest"]) copyFileSync(join("client", file), join(DIST, file));
+// Root files: app icons, link preview, manifest.
+for (const file of [
+  "favicon.png",
+  "apple-touch-icon.png",
+  "icon-192.png",
+  "icon-512.png",
+  "icon-maskable-512.png",
+  "og-image.jpg",
+  "manifest.webmanifest",
+]) {
+  copyFileSync(join("client", file), join(DIST, file));
+}
+
+// The pre-paint theme script gets a content hash like the bundles.
+const themeJs = readFileSync("client/theme-init.js");
+const themeName = `theme-${createHash("sha256").update(themeJs).digest("hex").slice(0, 10)}.js`;
+writeFileSync(join(ASSETS, themeName), themeJs);
+
 const html = readFileSync("client/index.html", "utf8")
   .replaceAll("%MAIN_JS%", `/assets/${jsName}`)
-  .replaceAll("%MAIN_CSS%", `/assets/${cssName}`);
+  .replaceAll("%MAIN_CSS%", `/assets/${cssName}`)
+  .replaceAll("%THEME_JS%", `/assets/${themeName}`);
 writeFileSync(join(DIST, "index.html"), html);
 
-// Precompress every text asset.
 function walk(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
   );
 }
+
+// Service worker: precache everything under /assets so the checklist
+// (icons included) works offline after the first visit.
+const precache = walk(ASSETS)
+  .filter((f) => !/\.(br|gz)$/.test(f) && !/key-art-1600/.test(f))
+  .map((f) => "/" + f.slice(DIST.length + 1).split("\\").join("/"))
+  .sort();
+const version = createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 12);
+writeFileSync(
+  join(DIST, "sw.js"),
+  readFileSync("client/sw.js", "utf8")
+    .replace("%VERSION%", version)
+    .replace("%PRECACHE%", JSON.stringify(["/manifest.webmanifest", ...precache])),
+);
+
+// Precompress every text asset.
 for (const file of walk(DIST)) {
   if (!/\.(html|js|css|svg|webmanifest)$/.test(file)) continue;
   const data = readFileSync(file);

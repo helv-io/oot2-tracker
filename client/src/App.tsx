@@ -11,26 +11,39 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "./api";
-import { SECTIONS, TOTAL_ITEMS, type CatalogItem } from "./data/catalog";
+import { ALL_ITEMS, SECTIONS, TOTAL_ITEMS, type CatalogItem } from "./data/catalog";
 import { ITEM_ICON, eraGroups, journeyGroups, locationGroups, type ViewGroup } from "./data/views";
-import { HeartContainerIcon, HeartPieceIcon, SectionIcon, SkulltulaIcon, TriforceIcon } from "./components/icons";
+import { TONE_COLOR, placeOf, type Tone } from "./data/look";
+import { ART } from "./data/art.generated";
+import { Sprite } from "./components/Art";
 import { buildChecklistPdf } from "./pdf";
 import { WriteQueue, type QueueStatus } from "./lib/sync";
 import { reconcile, sameSet } from "./lib/reconcile";
+import { decodeProgress, encodeProgress } from "./lib/share";
+import { buzz, celebrate } from "./lib/celebrate";
+import { useInstallPrompt } from "./lib/pwa";
 
 type StatusFilter = "all" | "todo" | "done";
 type AgeFilter = "all" | "Child" | "Adult";
 type ViewMode = "journey" | "places" | "eras";
+type ThemeMode = "system" | "light" | "dark";
 type AccountState = "signedout" | "connecting" | "synced" | "conflict" | "offline";
 
 // Device-side progress lives in browser storage under this key, so the
 // checklist works (and keeps every tick) with or without an account.
 const LOCAL_KEY = "oot-100-checklist:device-checks:v1";
 const PREFS_KEY = "oot-100-checklist:prefs:v1";
-const ALL_IDS: ReadonlySet<string> = new Set(SECTIONS.flatMap((s) => s.items.map((i) => i.id)));
+const ALL_IDS: ReadonlySet<string> = new Set(ALL_ITEMS.map((i) => i.id));
+const ALL_ID_LIST = ALL_ITEMS.map((i) => i.id);
 // Health = 3 starting hearts + one per boss Heart Container actually
 // earned (the eight dungeon-clear story items) + one per four pieces.
 const BOSS_CONTAINER_IDS = ["story-1", "story-5", "story-7", "story-10", "story-11", "story-13", "story-15", "story-18"];
+const SKULL_IDS = SECTIONS.find((s) => s.id === "skulltulas")?.items.map((i) => i.id) ?? [];
+const HEART_IDS = SECTIONS.find((s) => s.id === "hearts")?.items.map((i) => i.id) ?? [];
+// Lower-cased search text per item, built once.
+const HAYSTACK: ReadonlyMap<string, string> = new Map(
+  ALL_ITEMS.map((i) => [i.id, `${i.name} ${i.detail} ${i.area ?? ""}`.toLowerCase()]),
+);
 
 function readDeviceChecks(): Set<string> {
   try {
@@ -47,19 +60,27 @@ function readDeviceChecks(): Set<string> {
 interface Prefs {
   view: ViewMode;
   filtersOpen: boolean;
+  theme: ThemeMode;
 }
 
 function readPrefs(): Prefs {
-  const fallback: Prefs = { view: "journey", filtersOpen: false };
+  const fallback: Prefs = { view: "journey", filtersOpen: false, theme: "system" };
   try {
     const parsed = JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}") as Partial<Prefs>;
     return {
       view: parsed.view === "places" || parsed.view === "eras" ? parsed.view : "journey",
       filtersOpen: parsed.filtersOpen === true,
+      theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
     };
   } catch {
     return fallback;
   }
+}
+
+/** A friend's shared progress from the URL (#p=...), if any. */
+function readShared(): Set<string> | null {
+  const m = /^#p=([A-Za-z0-9_-]+)$/.exec(window.location.hash);
+  return m ? decodeProgress(m[1], ALL_IDS) : null;
 }
 
 function itemMatches(item: CatalogItem, q: string, status: StatusFilter, age: AgeFilter, checked: ReadonlySet<string>) {
@@ -67,11 +88,27 @@ function itemMatches(item: CatalogItem, q: string, status: StatusFilter, age: Ag
   if (status === "todo" && isDone) return false;
   if (status === "done" && !isDone) return false;
   if (age !== "all" && item.age && item.age !== "Both" && item.age !== age) return false;
-  if (q) {
-    const hay = `${item.name} ${item.detail} ${item.area ?? ""}`.toLowerCase();
-    if (!hay.includes(q)) return false;
-  }
+  if (q && !(HAYSTACK.get(item.id) ?? "").includes(q)) return false;
   return true;
+}
+
+/** Wraps each match of q in <mark>. */
+function Highlight({ text, q }: { text: string; q: string }) {
+  if (!q) return <>{text}</>;
+  const lower = text.toLowerCase();
+  const parts: ReactNode[] = [];
+  let at = 0;
+  for (let i = lower.indexOf(q); i !== -1; i = lower.indexOf(q, i + q.length)) {
+    if (i > at) parts.push(text.slice(at, i));
+    parts.push(
+      <mark key={i} className="hit">
+        {text.slice(i, i + q.length)}
+      </mark>,
+    );
+    at = i + q.length;
+  }
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
 }
 
 function Caret({ open, size = 18 }: { open: boolean; size?: number }) {
@@ -81,46 +118,87 @@ function Caret({ open, size = 18 }: { open: boolean; size?: number }) {
       height={size}
       viewBox="0 0 20 20"
       aria-hidden="true"
-      style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s", flexShrink: 0 }}
+      style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.25s", flexShrink: 0 }}
     >
-      <path d="M4 7 L10 13 L16 7" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M5 7.5 L10 12.5 L15 7.5" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
+const tone = (t: Tone) => TONE_COLOR[t];
+
+/** The hero's big ring. */
 function ProgressRing({ pct }: { pct: number }) {
   const r = 52;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32" role="img" aria-label={`${pct}% complete`}>
+    <div className="relative h-[104px] w-[104px] shrink-0 sm:h-28 sm:w-28" role="img" aria-label={`${pct}% complete`}>
       <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(201,162,39,0.25)" strokeWidth="9" />
+        <circle cx="60" cy="60" r={r} fill="rgba(10,15,12,0.45)" stroke="rgba(230,205,138,0.22)" strokeWidth="6" />
         <circle
+          className="ring-arc"
           cx="60"
           cy="60"
           r={r}
           fill="none"
-          stroke="#e7c65a"
-          strokeWidth="9"
+          stroke="url(#gold-grad)"
+          strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c - (c * pct) / 100}
-          style={{ transition: "stroke-dashoffset 0.4s ease" }}
         />
+        <defs>
+          <linearGradient id="gold-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#f4e6bd" />
+            <stop offset="1" stopColor="#c9a95c" />
+          </linearGradient>
+        </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-3xl font-bold text-[#f5ecd4]">{pct}%</span>
-        <span className="text-[11px] tracking-widest text-[#cbb26a] uppercase">of Hyrule</span>
+        <span className="font-display text-[28px] leading-none text-[#f6eedb]">{pct}%</span>
+        <span className="mt-1 text-[10px] font-semibold tracking-[0.18em] text-[#d9c58f] uppercase">Complete</span>
       </div>
     </div>
   );
 }
 
-const Tag = ({ children, accent }: { children: ReactNode; accent?: boolean }) => (
+/** A section emblem inside a thin progress ring in the section's colour. */
+function Medallion({ icon, color, pct, size = 48 }: { icon: string; color: string; pct: number; size?: number }) {
+  const r = 21;
+  const c = 2 * Math.PI * r;
+  const complete = pct >= 100;
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} aria-hidden="true">
+      <svg viewBox="0 0 48 48" className="absolute inset-0 h-full w-full -rotate-90">
+        <circle cx="24" cy="24" r={r} strokeWidth="2.5" style={{ fill: `color-mix(in srgb, ${color} 38%, #101612)`, stroke: `color-mix(in srgb, ${color} 30%, transparent)` }} />
+        <circle
+          className="ring-arc"
+          cx="24"
+          cy="24"
+          r={r}
+          fill="none"
+          style={{ stroke: complete ? "var(--gold)" : color }}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (c * pct) / 100}
+        />
+      </svg>
+      <Sprite name={icon} size={Math.round(size * 0.6)} className={`relative ${complete ? "glow" : ""}`} />
+    </span>
+  );
+}
+
+const Tag = ({ children, color }: { children: ReactNode; color?: string }) => (
   <span
-    className="rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide"
-    style={{ background: "var(--surface-alt)", color: accent ? "var(--accent)" : "var(--dim)", border: "1px solid var(--border)" }}
+    className="inline-flex items-center gap-1 rounded-full px-2 py-[1px] text-[11.5px] font-medium"
+    style={{
+      background: color ? `color-mix(in srgb, ${color} 12%, var(--surface))` : "var(--surface-alt)",
+      color: color ? `color-mix(in srgb, ${color} 70%, var(--text))` : "var(--dim)",
+      border: `1px solid ${color ? `color-mix(in srgb, ${color} 30%, transparent)` : "var(--border)"}`,
+    }}
   >
+    {color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
     {children}
   </span>
 );
@@ -129,48 +207,65 @@ const ItemRow = memo(function ItemRow({
   item,
   icon,
   isDone,
+  query,
+  readOnly,
   onToggle,
 }: {
   item: CatalogItem;
   icon: string;
   isDone: boolean;
+  query: string;
+  readOnly: boolean;
   onToggle: (id: string, next: boolean) => void;
 }) {
   const labelId = `lbl-${item.id}`;
+  const [justDone, setJustDone] = useState(false);
+  const areaColor = tone(placeOf(item.area).tone);
   return (
-    <div className={`flex gap-3 px-3 py-3 sm:px-4 ${isDone ? "opacity-70" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
+    <div className={`row flex gap-3 px-3.5 py-3 sm:px-4 ${isDone ? "done" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
       <button
         type="button"
         role="checkbox"
         aria-checked={isDone}
         aria-labelledby={labelId}
-        onClick={() => onToggle(item.id, !isDone)}
-        className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-md transition-transform active:scale-95"
-        style={{ border: "2px solid var(--accent)", background: isDone ? "var(--gold)" : "transparent" }}
+        aria-disabled={readOnly || undefined}
+        onClick={() => {
+          if (readOnly) return;
+          if (!isDone) {
+            setJustDone(true);
+            buzz();
+          }
+          onToggle(item.id, !isDone);
+        }}
+        onAnimationEnd={() => setJustDone(false)}
+        className={`check mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-[10px] ${justDone ? "just-done" : ""}`}
+        style={{
+          border: `1.5px solid ${isDone ? "var(--gold)" : "var(--border)"}`,
+          background: isDone ? "color-mix(in srgb, var(--gold) 16%, var(--surface))" : "var(--surface-alt)",
+          cursor: readOnly ? "default" : "pointer",
+        }}
       >
-        {isDone ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M3.5 10.5 L8 15 L16.5 5" fill="none" stroke="#241a10" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <span className="opacity-45">
-            <SectionIcon kind={icon} size={20} />
+        <Sprite name={icon} size={34} className="sprite" />
+        {isDone && (
+          <span
+            className="absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full"
+            style={{ background: "var(--gold)", boxShadow: "0 0 0 2px var(--surface)" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 20 20" aria-hidden="true" className="tick">
+              <path d="M4 10.5 L8.2 14.5 L16 6" fill="none" stroke="var(--on-gold)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
         )}
       </button>
       <div className="min-w-0 flex-1">
-        <p
-          id={labelId}
-          className="text-[15px] leading-snug font-semibold"
-          style={{ color: "var(--text)", textDecoration: isDone ? "line-through" : "none", textDecorationColor: "var(--gold)" }}
-        >
-          {item.name}
+        <p id={labelId} className="title text-[15px] leading-snug font-semibold" style={{ color: "var(--text)" }}>
+          <Highlight text={item.name} q={query} />
         </p>
-        <p className="mt-0.5 text-sm leading-snug" style={{ color: "var(--dim)" }}>
-          {item.detail}
+        <p className="copy mt-0.5 text-[13.5px] leading-[1.45]" style={{ color: "var(--dim)" }}>
+          <Highlight text={item.detail} q={query} />
         </p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {item.area && <Tag accent>{item.area}</Tag>}
+        <div className="copy mt-1.5 flex flex-wrap gap-1.5">
+          {item.area && <Tag color={areaColor}>{item.area}</Tag>}
           {item.age && <Tag>{item.age === "Both" ? "Child & Adult" : `${item.age} Link`}</Tag>}
           {item.time && item.time !== "Any" && <Tag>{item.time} only</Tag>}
         </div>
@@ -184,75 +279,109 @@ function GroupBlock({
   visibleItems,
   checked,
   filtering,
+  query,
+  readOnly,
   defaultOpen = false,
   onToggle,
+  onComplete,
 }: {
   group: ViewGroup;
   visibleItems: CatalogItem[];
   checked: ReadonlySet<string>;
   filtering: boolean;
+  query: string;
+  readOnly: boolean;
   defaultOpen?: boolean;
   onToggle: (id: string, next: boolean) => void;
+  onComplete: (group: ViewGroup, el: HTMLElement | null) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const isOpen = filtering || open;
   const doneCount = group.items.filter((i) => checked.has(i.id)).length;
-  const pct = group.items.length ? Math.round((doneCount / group.items.length) * 100) : 0;
+  const total = group.items.length;
+  const pct = total ? Math.round((doneCount / total) * 100) : 0;
   const bodyId = `body-${group.key}`;
+  const color = tone(group.tone);
+  const headRef = useRef<HTMLDivElement | null>(null);
+
+  // Celebrate the moment a group fills up (not on first render).
+  const prevDone = useRef(doneCount);
+  useEffect(() => {
+    if (!readOnly && prevDone.current < total && doneCount === total && total > 0) onComplete(group, headRef.current);
+    prevDone.current = doneCount;
+  }, [doneCount, total, group, onComplete, readOnly]);
+
+  const title = group.title.replace(/ — All \d+$/, "");
   return (
     <section id={`grp-${group.key}`} className="scroll-mt-40">
       <div
-        className="overflow-hidden rounded-xl"
-        style={{ background: "var(--surface)", border: "1.5px solid var(--border)", boxShadow: "0 2px 10px rgba(36,26,16,0.12)" }}
+        className="overflow-hidden"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius)",
+          boxShadow: "var(--shadow)",
+        }}
       >
-        {filtering ? (
-          <h2 className="font-display flex items-center gap-2.5 px-4 pt-3.5 text-[15px] font-bold" style={{ color: "var(--text)" }}>
-            <SectionIcon kind={group.icon} size={24} /> {group.title}
-            <span className="text-sm" style={{ color: "var(--accent)" }}>
-              {doneCount}/{group.items.length}
-            </span>
-          </h2>
-        ) : (
-          <h2>
-            <button
-              type="button"
-              aria-expanded={isOpen}
-              aria-controls={bodyId}
-              onClick={() => setOpen(!open)}
-              className="flex w-full items-center gap-3 px-4 py-3.5 text-left"
-              style={{ minHeight: 56 }}
-            >
-              <SectionIcon kind={group.icon} size={30} />
-              <span className="min-w-0 flex-1">
-                <span className="font-display block text-[17px] leading-tight font-bold tracking-wide" style={{ color: "var(--text)" }}>
-                  {group.title}
-                </span>
-                <span className="mt-1 block h-1.5 overflow-hidden rounded-full" style={{ background: "var(--surface-alt)" }} aria-hidden="true">
-                  <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: "var(--gold)" }} />
-                </span>
+        <div
+          ref={headRef}
+          style={{
+            background: `linear-gradient(100deg, color-mix(in srgb, ${color} var(--tint), var(--surface)) 0%, var(--surface) 70%)`,
+            borderLeft: `3px solid ${color}`,
+          }}
+        >
+          {filtering ? (
+            <h2 className="flex items-center gap-3 px-4 pt-3 pb-2">
+              <Medallion icon={group.icon} color={color} pct={pct} size={36} />
+              <span className="font-display min-w-0 flex-1 text-[16px] leading-tight" style={{ color: "var(--text)" }}>
+                {title}
               </span>
-              <span className="font-display shrink-0 text-sm font-bold" style={{ color: "var(--accent)" }}>
-                <span className="sr-only">Done: </span>
-                {doneCount}/{group.items.length}
+              <span className="text-[13px] font-semibold tabular-nums" style={{ color: "var(--dim)" }}>
+                {doneCount}/{total}
               </span>
-              <Caret open={isOpen} />
-            </button>
-          </h2>
-        )}
+            </h2>
+          ) : (
+            <h2>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={bodyId}
+                onClick={() => setOpen(!open)}
+                className="flex w-full items-center gap-3 px-3.5 py-3 text-left sm:px-4"
+                style={{ minHeight: 64 }}
+              >
+                <Medallion icon={group.icon} color={color} pct={pct} />
+                <span className="min-w-0 flex-1">
+                  <span className="font-display block text-[17px] leading-tight" style={{ color: "var(--text)" }}>
+                    {title}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] font-medium tabular-nums" style={{ color: "var(--dim)" }}>
+                    <span className="sr-only">Done: </span>
+                    {doneCount === total && total > 0 ? "Complete" : `${doneCount} of ${total}`}
+                  </span>
+                </span>
+                {doneCount === total && total > 0 && <Sprite name="triforce" size={18} className="glow" />}
+                <Caret open={isOpen} />
+              </button>
+            </h2>
+          )}
+        </div>
         {isOpen && (
-          <div id={bodyId}>
+          <div id={bodyId} className="fade-in">
             {group.blurb && !filtering && (
-              <p className="px-4 pb-2 text-sm italic" style={{ color: "var(--dim)" }}>
+              <p className="px-4 pt-1 pb-3 text-[13.5px] leading-relaxed" style={{ color: "var(--dim)" }}>
                 {group.blurb}
               </p>
             )}
-            <div className={filtering ? "mt-2" : undefined}>
+            <div>
               {visibleItems.map((item) => (
                 <ItemRow
                   key={item.id}
                   item={item}
                   icon={ITEM_ICON.get(item.id) ?? group.icon}
                   isDone={checked.has(item.id)}
+                  query={query}
+                  readOnly={readOnly}
                   onToggle={onToggle}
                 />
               ))}
@@ -264,19 +393,24 @@ function GroupBlock({
   );
 }
 
-const goldButton: CSSProperties = { background: "var(--gold)", color: "#241a10", border: "1.5px solid #7c5f14", minHeight: 40 };
+const goldButton: CSSProperties = {
+  background: "linear-gradient(180deg, var(--gold-bright), var(--gold))",
+  color: "var(--on-gold)",
+  border: "1px solid color-mix(in srgb, var(--gold) 60%, #000)",
+  minHeight: 40,
+};
+const quietButton: CSSProperties = { border: "1px solid var(--border)", color: "var(--text)", background: "var(--surface)", minHeight: 40 };
 
 function GoogleMark() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        fill="#241a10"
+        fill="currentColor"
         d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.4a4.6 4.6 0 0 1-2 3L18.6 21c1.9-1.7 3-4.3 3-8.8zM12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.2L3.1 16.1A10 10 0 0 0 12 22zM6.4 13.9a6 6 0 0 1 0-3.8L3.1 7.9a10 10 0 0 0 0 8.2l3.3-2.2zM12 5.9c1.5 0 2.8.5 3.8 1.5L18.6 4.6A10 10 0 0 0 3.1 7.9l3.3 2.2C7.2 7.7 9.4 5.9 12 5.9z"
       />
     </svg>
   );
 }
-
 /** Two-tap destructive button: the first tap arms it for 4 seconds. */
 function ConfirmButton({ label, confirmLabel, onConfirm, disabled }: { label: string; confirmLabel: string; onConfirm: () => void; disabled?: boolean }) {
   const [armed, setArmed] = useState(false);
@@ -300,9 +434,9 @@ function ConfirmButton({ label, confirmLabel, onConfirm, disabled }: { label: st
       }}
       className="rounded-lg px-3.5 text-[14px] font-semibold"
       style={{
-        background: armed ? "#b03030" : "transparent",
+        background: armed ? "#9b3a33" : "var(--surface)",
         color: armed ? "#fff" : "var(--text)",
-        border: "1.5px solid var(--border)",
+        border: "1px solid var(--border)",
         minHeight: 40,
       }}
     >
@@ -316,7 +450,6 @@ interface Toast {
   text: string;
   tone: "ok" | "warn";
 }
-
 export function App() {
   const queryClient = useQueryClient();
   const sessionQuery = useQuery({ queryKey: ["session"], queryFn: api.getSession, retry: 1 });
@@ -339,6 +472,12 @@ export function App() {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  // A friend's progress opened from a share link: read-only until closed.
+  const [shared, setShared] = useState<Set<string> | null>(() => readShared());
+  const [fanfare, setFanfare] = useState<string | null>(null);
+  const [finale, setFinale] = useState(false);
+  const install = useInstallPrompt();
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   const reconciledRef = useRef(false);
   const checkedRef = useRef(checked);
@@ -393,6 +532,40 @@ export function App() {
       // ignore
     }
   }, [prefs]);
+
+  // Theme: system, light or dark (theme-init.js applies it before paint).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (prefs.theme === "system") delete root.dataset.theme;
+    else root.dataset.theme = prefs.theme;
+    const dark = prefs.theme === "dark" || (prefs.theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0e1411" : "#f1ebdd");
+  }, [prefs.theme]);
+
+  // "/" jumps to search; Escape clears it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      } else if (e.key === "Escape" && target === searchRef.current) {
+        setQuery("");
+        searchRef.current?.blur();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Share links can arrive while the app is open, too.
+  useEffect(() => {
+    const onHash = () => setShared(readShared());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // Sign-in result from the OAuth redirect.
   useEffect(() => {
@@ -466,8 +639,11 @@ export function App() {
     };
   }, [queue]);
 
+  // Celebrations only follow the user's own taps, not a sync pull.
+  const lastTapRef = useRef(0);
   const onToggle = useCallback(
     (id: string, next: boolean) => {
+      lastTapRef.current = Date.now();
       setChecked((prev) => {
         const copy = new Set(prev);
         if (next) copy.add(id);
@@ -485,6 +661,53 @@ export function App() {
     },
     [queue, showToast],
   );
+
+  const onGroupComplete = useCallback((group: ViewGroup, el: HTMLElement | null) => {
+    if (Date.now() - lastTapRef.current > 1500) return;
+    const box = el?.getBoundingClientRect();
+    celebrate({ x: box ? box.left + 40 : undefined, y: box ? box.top + 32 : undefined });
+    buzz([14, 40, 22]);
+    setFanfare(group.title.replace(/ — All \d+$/, ""));
+  }, []);
+
+  useEffect(() => {
+    if (!fanfare) return;
+    const t = setTimeout(() => setFanfare(null), 2600);
+    return () => clearTimeout(t);
+  }, [fanfare]);
+
+  // Everything done: the big finale, once per reaching it.
+  const wasComplete = useRef(checked.size === TOTAL_ITEMS);
+  useEffect(() => {
+    const complete = checked.size === TOTAL_ITEMS;
+    if (complete && !wasComplete.current && Date.now() - lastTapRef.current < 1500) {
+      setFinale(true);
+      celebrate({ big: true });
+      buzz([30, 60, 30, 60, 80]);
+    }
+    wasComplete.current = complete;
+  }, [checked]);
+
+  const shareProgress = async () => {
+    const url = `${window.location.origin}/#p=${encodeProgress(checked, ALL_ID_LIST)}`;
+    const text = `${checked.size} of ${TOTAL_ITEMS} done in Ocarina of Time`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "My Ocarina of Time progress", text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      showToast("Link copied");
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return;
+      showToast("Couldn't share. Try again", "warn", 2400);
+    }
+  };
+
+  const closeShared = () => {
+    setShared(null);
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  };
 
   const finishSync = (message: string) => {
     setConflictKeys(null);
@@ -566,6 +789,10 @@ export function App() {
   const filterCount = (status !== "all" ? 1 : 0) + (age !== "all" ? 1 : 0);
   const filtering = deferredQuery !== "" || filterCount > 0;
 
+  // While viewing a friend's link, everything reads from their snapshot.
+  const viewChecked: ReadonlySet<string> = shared ?? checked;
+  const readOnly = shared !== null;
+
   const groups = useMemo<ViewGroup[]>(() => {
     if (view === "places") return locationGroups();
     if (view === "eras") return eraGroups();
@@ -575,17 +802,17 @@ export function App() {
   const visibleGroups = useMemo(
     () =>
       groups
-        .map((group) => ({ group, items: group.items.filter((i) => itemMatches(i, deferredQuery, status, age, checked)) }))
+        .map((group) => ({ group, items: group.items.filter((i) => itemMatches(i, deferredQuery, status, age, viewChecked)) }))
         .filter((v) => v.items.length > 0),
-    [groups, deferredQuery, status, age, checked],
+    [groups, deferredQuery, status, age, viewChecked],
   );
   const visibleCount = visibleGroups.reduce((n, g) => n + g.items.length, 0);
 
-  const doneTotal = checked.size;
+  const doneTotal = viewChecked.size;
   const pct = Math.floor((doneTotal / TOTAL_ITEMS) * 100);
-  const skullDone = SECTIONS.find((s) => s.id === "skulltulas")?.items.filter((i) => checked.has(i.id)).length ?? 0;
-  const heartDone = SECTIONS.find((s) => s.id === "hearts")?.items.filter((i) => checked.has(i.id)).length ?? 0;
-  const containersDone = BOSS_CONTAINER_IDS.filter((id) => checked.has(id)).length;
+  const skullDone = SKULL_IDS.filter((id) => viewChecked.has(id)).length;
+  const heartDone = HEART_IDS.filter((id) => viewChecked.has(id)).length;
+  const containersDone = BOSS_CONTAINER_IDS.filter((id) => viewChecked.has(id)).length;
   const heartsTotal = 3 + containersDone + Math.floor(heartDone / 4);
 
   const conflictServerSet = useMemo(() => new Set(conflictKeys ?? []), [conflictKeys]);
@@ -593,9 +820,9 @@ export function App() {
   const serverOnlyCount = conflictKeys ? conflictKeys.filter((id) => !checked.has(id)).length : 0;
 
   const chipStyle = (active: boolean): CSSProperties => ({
-    background: active ? "var(--forest)" : "var(--surface)",
-    color: active ? "#f5ecd4" : "var(--text)",
-    border: "1.5px solid var(--border)",
+    background: active ? "color-mix(in srgb, var(--gold) 22%, var(--surface))" : "var(--surface)",
+    color: active ? "var(--text)" : "var(--dim)",
+    border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
     minHeight: 36,
   });
 
@@ -636,120 +863,144 @@ export function App() {
   const signInButton = (
     <a
       href="/auth/google"
-      className="font-display inline-flex items-center gap-2 rounded-lg px-3.5 text-[13px] font-bold tracking-wide"
-      style={{ ...goldButton, minHeight: 36, textDecoration: "none" }}
+      className="inline-flex items-center gap-2 rounded-full px-4 text-[13.5px] font-semibold"
+      style={{ ...goldButton, minHeight: 38, textDecoration: "none" }}
     >
       <GoogleMark />
       Sign in to sync
     </a>
   );
 
-  const statText = "text-[11px] tracking-wider text-[#cbb26a] uppercase";
-  const statBox: CSSProperties = { background: "rgba(245,236,212,0.08)", border: "1px solid rgba(201,162,39,0.45)" };
+  const statText = "mt-0.5 text-[10.5px] font-semibold tracking-[0.14em] text-[#d9c58f] uppercase";
+  const statBox: CSSProperties = {
+    background: "rgba(10,15,12,0.5)",
+    border: "1px solid rgba(230,205,138,0.28)",
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+  };
+  const pill = "inline-flex items-center rounded-full px-3.5 text-[13px] font-semibold";
   const syncing = accountState === "synced" && queueStatus !== "idle";
 
+
+  const setTheme = (theme: ThemeMode) => {
+    setPrefs((p) => ({ ...p, theme }));
+    showToast("Saved");
+  };
+
   return (
-    <div className="min-h-screen" style={{ background: "var(--bg)" }}>
+    <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <a href="#checklist" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-black">
         Skip to the checklist
       </a>
 
-      {/* ---------- Hero ---------- */}
-      <header
-        className="px-4 pt-7 pb-5"
-        style={{
-          background: "linear-gradient(160deg, #1e3a29 0%, #14231a 70%)",
-          borderBottom: "3px solid var(--gold)",
-          paddingTop: "max(1.75rem, env(safe-area-inset-top))",
-        }}
-      >
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-4">
-          <div className="flex items-center gap-4">
+      {/* ---------- Hero: official key art and logo ---------- */}
+      <header className="relative overflow-hidden" style={{ borderBottom: "1px solid rgba(230,205,138,0.35)", background: "#0b100d" }}>
+        <picture>
+          <source type="image/avif" srcSet={`${ART["key-art-800-avif"]} 800w, ${ART["key-art-1600-avif"]} 1600w`} sizes="100vw" />
+          <source type="image/webp" srcSet={`${ART["key-art-800-webp"]} 800w, ${ART["key-art-1600-webp"]} 1600w`} sizes="100vw" />
+          <img
+            src={ART["key-art-800-webp"]}
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: "32% 38%" }}
+          />
+        </picture>
+        <div
+          className="absolute inset-0"
+          aria-hidden="true"
+          style={{ background: "linear-gradient(180deg, rgba(8,12,10,0.25) 0%, rgba(8,12,10,0.5) 45%, rgba(8,12,10,0.9) 100%)" }}
+        />
+        <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 pb-5" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}>
+          <div className="flex flex-col items-center">
+            <picture>
+              <source type="image/avif" srcSet={ART["logo-640-avif"]} />
+              <img
+                src={ART["logo-640-webp"]}
+                alt="The Legend of Zelda: Ocarina of Time"
+                width={640}
+                height={492}
+                className="h-auto w-[210px] sm:w-[250px]"
+                style={{ filter: "drop-shadow(0 6px 18px rgba(0,0,0,0.55))" }}
+              />
+            </picture>
+            <h1 className="font-display -mt-1 text-[15px] tracking-[0.32em] text-[#ecd697] uppercase sm:text-[16px]">100% Checklist</h1>
+          </div>
+
+          <div className="flex w-full max-w-md items-center justify-center gap-4">
             <ProgressRing pct={pct} />
-            <div>
-              <div className="flex items-center gap-2">
-                <TriforceIcon size={20} />
-                <p className="text-[11px] font-bold tracking-[0.22em] text-[#cbb26a] uppercase">The Legend of Zelda</p>
-              </div>
-              <h1 className="font-display mt-1 text-[24px] leading-tight font-bold text-[#f5ecd4] sm:text-[26px]">
-                Ocarina of Time
-                <span className="block text-[16px] tracking-wide text-[#e7c65a] sm:text-[17px]">100% Checklist</span>
-              </h1>
-              <p className="mt-1.5 text-sm text-[#d8c9a3]">
-                {doneTotal} of {TOTAL_ITEMS} done
-              </p>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              {[
+                { icon: "token", value: `${skullDone}/100`, label: "Skulltulas" },
+                { icon: "piece-of-heart", value: `${heartDone}/36`, label: "Heart pieces" },
+                { icon: null, value: `${heartsTotal}/20`, label: "Hearts" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center gap-2.5 rounded-xl px-3 py-1.5" style={statBox}>
+                  {s.icon ? (
+                    <Sprite name={s.icon} size={26} />
+                  ) : (
+                    <img src={ART["heart-container-96-webp"]} alt="" aria-hidden="true" width={26} height={26} style={{ width: 26, height: 26, objectFit: "contain" }} />
+                  )}
+                  <span className="font-display text-[17px] leading-none text-[#f6eedb] tabular-nums">{s.value}</span>
+                  <span className={`${statText} ml-auto`}>{s.label}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-3 gap-2">
-            <div className="rounded-lg px-2 py-2.5 text-center" style={statBox}>
-              <div className="flex items-center justify-center gap-1.5">
-                <SkulltulaIcon size={19} />
-                <span className="font-display text-lg font-bold text-[#f5ecd4]">{skullDone}/100</span>
-              </div>
-              <p className={statText}>Skulltulas</p>
-            </div>
-            <div className="rounded-lg px-2 py-2.5 text-center" style={statBox}>
-              <div className="flex items-center justify-center gap-1.5">
-                <HeartPieceIcon size={19} />
-                <span className="font-display text-lg font-bold text-[#f5ecd4]">{heartDone}/36</span>
-              </div>
-              <p className={statText}>Heart pieces</p>
-            </div>
-            <div className="rounded-lg px-2 py-2.5 text-center" style={statBox}>
-              <div className="flex items-center justify-center gap-1.5">
-                <HeartContainerIcon size={19} />
-                <span className="font-display text-lg font-bold text-[#f5ecd4]">{heartsTotal}/20</span>
-              </div>
-              <p className={statText}>Hearts</p>
-            </div>
-          </div>
-
-          <div className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-[13px] text-[#d8c9a3]" aria-live="polite">
-            {accountState === "signedout" && (
+          <div className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-[13px] text-[#e3d7b8]" aria-live="polite">
+            {readOnly ? (
               <>
-                <span>Saved on this device.</span>
-                {/* A failed probe still offers sign-in: /auth/google
-                    itself reports when sign-in is unavailable. */}
-                {(googleConfigured || sessionQuery.isError) && signInButton}
-              </>
-            )}
-            {accountState === "connecting" && (
-              <>
-                <span>Connecting…</span>
-                {/* Never make sign-in wait on a slow probe. */}
-                {signInButton}
-              </>
-            )}
-            {accountState === "synced" && (
-              <span className="max-w-full truncate">
-                {syncing ? (queueStatus === "error" ? "Offline. Will retry" : "Syncing…") : <>Synced{user?.email ? ` · ${user.email}` : ""}</>}
-              </span>
-            )}
-            {accountState === "conflict" && (
-              <>
-                <span>Device and account differ.</span>
-                <button
-                  type="button"
-                  onClick={() => setSyncModalOpen(true)}
-                  className="font-display rounded-lg px-3.5 text-[13px] font-bold tracking-wide"
-                  style={{ ...goldButton, minHeight: 36 }}
-                >
-                  Choose
+                <span>A friend's progress · {doneTotal} of {TOTAL_ITEMS}</span>
+                <button type="button" onClick={closeShared} className={pill} style={{ ...goldButton, minHeight: 36 }}>
+                  Back to mine
                 </button>
               </>
-            )}
-            {accountState === "offline" && (
+            ) : (
               <>
-                <span>Can't reach your account.</span>
-                <button
-                  type="button"
-                  onClick={retryAccount}
-                  className="font-display rounded-lg px-3.5 text-[13px] font-bold tracking-wide"
-                  style={{ ...goldButton, minHeight: 36 }}
-                >
-                  Retry
-                </button>
+                <span className="tabular-nums">
+                  {doneTotal} of {TOTAL_ITEMS} done
+                </span>
+                <span aria-hidden="true" className="opacity-50">
+                  ·
+                </span>
+                {accountState === "signedout" && (
+                  <>
+                    <span>Saved on this device</span>
+                    {/* A failed probe still offers sign-in: /auth/google
+                        itself reports when sign-in is unavailable. */}
+                    {(googleConfigured || sessionQuery.isError) && signInButton}
+                  </>
+                )}
+                {accountState === "connecting" && (
+                  <>
+                    <span>Connecting…</span>
+                    {/* Never make sign-in wait on a slow probe. */}
+                    {signInButton}
+                  </>
+                )}
+                {accountState === "synced" && (
+                  <span className="max-w-full truncate">
+                    {syncing ? (queueStatus === "error" ? "Offline. Will retry" : "Syncing…") : <>Synced{user?.email ? ` · ${user.email}` : ""}</>}
+                  </span>
+                )}
+                {accountState === "conflict" && (
+                  <>
+                    <span>Device and account differ</span>
+                    <button type="button" onClick={() => setSyncModalOpen(true)} className={pill} style={{ ...goldButton, minHeight: 36 }}>
+                      Choose
+                    </button>
+                  </>
+                )}
+                {accountState === "offline" && (
+                  <>
+                    <span>Can't reach your account</span>
+                    <button type="button" onClick={retryAccount} className={pill} style={{ ...goldButton, minHeight: 36 }}>
+                      Retry
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -759,10 +1010,16 @@ export function App() {
       {/* ---------- Controls ---------- */}
       <div
         className="sticky top-0 z-20 px-4 py-2.5"
-        style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+        style={{
+          background: "color-mix(in srgb, var(--bg) 88%, transparent)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          borderBottom: "1px solid var(--border)",
+          paddingTop: "max(0.625rem, env(safe-area-inset-top))",
+        }}
       >
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
-          <div className="flex overflow-hidden rounded-lg" role="group" aria-label="View" style={{ border: "1.5px solid var(--border)" }}>
+          <div className="flex rounded-full p-1" role="group" aria-label="View" style={{ background: "var(--surface-alt)", border: "1px solid var(--border)" }}>
             {(
               [
                 ["journey", "Journey"],
@@ -775,11 +1032,12 @@ export function App() {
                 type="button"
                 aria-pressed={view === mode}
                 onClick={() => setPrefs((p) => ({ ...p, view: mode }))}
-                className="font-display flex-1 px-2 text-[13px] font-bold tracking-wide"
+                className="font-display flex-1 rounded-full px-2 text-[14px] transition-colors"
                 style={{
-                  background: view === mode ? "var(--forest)" : "var(--surface)",
-                  color: view === mode ? "#f5ecd4" : "var(--text)",
-                  minHeight: 38,
+                  background: view === mode ? "var(--surface)" : "transparent",
+                  color: view === mode ? "var(--text)" : "var(--dim)",
+                  boxShadow: view === mode ? "0 1px 3px rgba(0,0,0,0.14)" : "none",
+                  minHeight: 34,
                 }}
               >
                 {label}
@@ -791,29 +1049,42 @@ export function App() {
               <label className="sr-only" htmlFor="checklist-search">
                 Search
               </label>
+              <svg className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+                <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="var(--dim)" strokeWidth="1.8" />
+                <path d="M13 13 L17 17" stroke="var(--dim)" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
               <input
+                ref={searchRef}
                 id="checklist-search"
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search deeds or places"
+                placeholder="Search"
                 autoComplete="off"
                 enterKeyHint="search"
-                className="w-full rounded-lg px-3 py-2 text-[16px]"
-                style={{ background: "var(--surface)", color: "var(--text)", border: "1.5px solid var(--border)", minHeight: 40 }}
+                className="w-full rounded-full py-2 pr-10 pl-9 text-[16px] outline-none focus:ring-2"
+                style={{ background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", minHeight: 40, ["--tw-ring-color" as string]: "color-mix(in srgb, var(--gold) 55%, transparent)" }}
               />
+              {!query && (
+                <kbd
+                  className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded px-1.5 text-[11px] sm:block"
+                  style={{ border: "1px solid var(--border)", color: "var(--dim)" }}
+                >
+                  /
+                </kbd>
+              )}
             </div>
             <button
               type="button"
               aria-expanded={prefs.filtersOpen}
               aria-controls="filter-panel"
               onClick={() => setPrefs((p) => ({ ...p, filtersOpen: !p.filtersOpen }))}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 text-[14px] font-semibold"
-              style={{ background: "var(--surface)", color: "var(--text)", border: "1.5px solid var(--border)", minHeight: 40 }}
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium"
+              style={{ ...quietButton }}
             >
               Filters
               {filterCount > 0 && (
-                <span className="rounded-full px-1.5 text-[12px] font-bold" style={{ background: "var(--gold)", color: "#241a10" }}>
+                <span className="rounded-full px-1.5 text-[12px] font-bold" style={{ background: "var(--gold)", color: "var(--on-gold)" }}>
                   {filterCount}
                 </span>
               )}
@@ -821,17 +1092,10 @@ export function App() {
             </button>
           </div>
           {prefs.filtersOpen && (
-            <div id="filter-panel" className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+            <div id="filter-panel" className="fade-in flex flex-col gap-1.5 sm:flex-row sm:items-center">
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status">
                 {(["all", "todo", "done"] as StatusFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    aria-pressed={status === f}
-                    onClick={() => setStatus(f)}
-                    className="rounded-full px-3 text-[13px] font-semibold"
-                    style={chipStyle(status === f)}
-                  >
+                  <button key={f} type="button" aria-pressed={status === f} onClick={() => setStatus(f)} className="rounded-full px-3 text-[13px] font-medium" style={chipStyle(status === f)}>
                     {f === "all" ? "All" : f === "todo" ? "To do" : "Done"}
                   </button>
                 ))}
@@ -839,14 +1103,7 @@ export function App() {
               <span className="mx-1 hidden h-5 w-px sm:block" style={{ background: "var(--border)" }} aria-hidden="true" />
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Era">
                 {(["all", "Child", "Adult"] as AgeFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    aria-pressed={age === f}
-                    onClick={() => setAge(f)}
-                    className="rounded-full px-3 text-[13px] font-semibold"
-                    style={chipStyle(age === f)}
-                  >
+                  <button key={f} type="button" aria-pressed={age === f} onClick={() => setAge(f)} className="rounded-full px-3 text-[13px] font-medium" style={chipStyle(age === f)}>
                     {f === "all" ? "Any era" : f}
                   </button>
                 ))}
@@ -867,14 +1124,15 @@ export function App() {
       {/* ---------- Group jump nav ---------- */}
       {!filtering && (
         <nav aria-label="Jump to a group" className="mx-auto max-w-3xl px-4 pt-3">
-          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible" style={{ scrollbarWidth: "none" }}>
+          <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", maskImage: "linear-gradient(90deg, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(90deg, #000 92%, transparent)" }}>
             {groups.map((group) => (
               <a
                 key={group.key}
                 href={`#grp-${group.key}`}
-                className="shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-semibold whitespace-nowrap"
-                style={{ background: "var(--surface)", color: "var(--accent)", border: "1px solid var(--border)", minHeight: 32, display: "inline-flex", alignItems: "center" }}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-medium whitespace-nowrap"
+                style={{ background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", minHeight: 32 }}
               >
+                <span className="h-2 w-2 rounded-full" style={{ background: tone(group.tone) }} aria-hidden="true" />
                 {group.title.replace(/ — All.*$/, "")}
               </a>
             ))}
@@ -883,7 +1141,7 @@ export function App() {
       )}
 
       {/* ---------- Sections ---------- */}
-      <main id="checklist" className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-4 pb-10">
+      <main id="checklist" className="mx-auto flex max-w-3xl flex-col gap-3.5 px-4 py-4 pb-10">
         {visibleGroups.length === 0 ? (
           <div className="py-10 text-center" style={{ color: "var(--dim)" }}>
             <p>Nothing matches.</p>
@@ -897,8 +1155,10 @@ export function App() {
               key={`${view}-${group.key}`}
               group={group}
               visibleItems={items}
-              checked={checked}
+              checked={viewChecked}
               filtering={filtering}
+              query={deferredQuery}
+              readOnly={readOnly}
               defaultOpen={
                 view === "journey"
                   ? group.key === "story" || group.key === "skulltulas" || group.key === "hearts"
@@ -907,77 +1167,107 @@ export function App() {
                     : false
               }
               onToggle={onToggle}
+              onComplete={onGroupComplete}
             />
           ))
         )}
 
         {doneTotal === TOTAL_ITEMS && (
-          <div className="rounded-xl px-5 py-6 text-center" style={{ background: "linear-gradient(160deg, #1e3a29, #14231a)", border: "2px solid var(--gold)" }}>
+          <div className="rise-in rounded-2xl px-5 py-6 text-center" style={{ background: "linear-gradient(160deg, #1f3327, #0f1a13)", border: "1px solid var(--gold)" }}>
             <div className="flex justify-center">
-              <TriforceIcon size={44} />
+              <Sprite name="triforce" size={52} className="glow" />
             </div>
-            <p className="font-display mt-2 text-xl font-bold text-[#f5ecd4]">100%. Hyrule is complete.</p>
-            <p className="mt-1 text-sm text-[#d8c9a3]">Every token, every heart, every secret.</p>
+            <p className="font-display mt-2 text-xl text-[#f6eedb]">Hyrule is complete</p>
+            <p className="mt-1 text-sm text-[#d8ccaf]">Every token, every heart, every secret.</p>
           </div>
         )}
 
         {/* ---------- More: rarely used actions ---------- */}
-        <section className="overflow-hidden rounded-xl" style={{ background: "var(--surface)", border: "1.5px solid var(--border)" }}>
+        <section className="overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
           <h2>
             <button
               type="button"
               aria-expanded={moreOpen}
               aria-controls="more-panel"
               onClick={() => setMoreOpen(!moreOpen)}
-              className="font-display flex w-full items-center justify-between px-4 py-3 text-left text-[15px] font-bold"
-              style={{ color: "var(--text)", minHeight: 48 }}
+              className="font-display flex w-full items-center justify-between px-4 py-3 text-left text-[16px]"
+              style={{ color: "var(--text)", minHeight: 52 }}
             >
               More
               <Caret open={moreOpen} />
             </button>
           </h2>
           {moreOpen && (
-            <div id="more-panel" className="flex flex-col gap-3 px-4 pb-4">
+            <div id="more-panel" className="fade-in flex flex-col gap-4 px-4 pb-4">
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={downloadPdf} className="font-display rounded-lg px-3.5 text-[14px] font-bold" style={goldButton}>
-                  Download PDF
+                <button type="button" onClick={() => void shareProgress()} className={pill} style={goldButton}>
+                  Share progress
                 </button>
-                <ConfirmButton label="Start over" confirmLabel="Tap again to erase all" onConfirm={() => void startOver()} disabled={busy} />
-              </div>
-              {signedIn && accountState !== "signedout" && (
-                <div className="flex flex-wrap items-center gap-2 pt-1" style={{ borderTop: "1px solid var(--border)" }}>
-                  <p className="w-full pt-2 text-[13px]" style={{ color: "var(--dim)" }}>
-                    Account
-                  </p>
+                {install && (
                   <button
                     type="button"
-                    onClick={() => void signOut()}
-                    className="rounded-lg px-3.5 text-[14px] font-semibold"
-                    style={{ border: "1.5px solid var(--border)", color: "var(--text)", minHeight: 40 }}
+                    onClick={() => void install().then((ok) => ok && showToast("Installed"))}
+                    className={pill}
+                    style={quietButton}
                   >
-                    Sign out
+                    Install app
                   </button>
-                  <ConfirmButton label="Delete my account" confirmLabel="Tap again to delete" onConfirm={() => void deleteAccount()} disabled={busy} />
+                )}
+                <button type="button" onClick={downloadPdf} className={pill} style={quietButton}>
+                  Download PDF
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-[13px]" style={{ color: "var(--dim)" }}>
+                  Theme
+                </span>
+                <div className="flex rounded-full p-1" role="group" aria-label="Theme" style={{ background: "var(--surface-alt)", border: "1px solid var(--border)" }}>
+                  {(
+                    [
+                      ["system", "Auto"],
+                      ["light", "Light"],
+                      ["dark", "Dark"],
+                    ] as [ThemeMode, string][]
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      aria-pressed={prefs.theme === mode}
+                      onClick={() => setTheme(mode)}
+                      className="rounded-full px-3.5 text-[13px] font-medium"
+                      style={{
+                        background: prefs.theme === mode ? "var(--surface)" : "transparent",
+                        color: prefs.theme === mode ? "var(--text)" : "var(--dim)",
+                        boxShadow: prefs.theme === mode ? "0 1px 3px rgba(0,0,0,0.14)" : "none",
+                        minHeight: 32,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+              <div className="flex flex-wrap gap-2 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                <ConfirmButton label="Start over" confirmLabel="Tap again to erase all" onConfirm={() => void startOver()} disabled={busy || readOnly} />
+                {signedIn && accountState !== "signedout" && (
+                  <>
+                    <button type="button" onClick={() => void signOut()} className="rounded-lg px-3.5 text-[14px] font-medium" style={quietButton}>
+                      Sign out
+                    </button>
+                    <ConfirmButton label="Delete my account" confirmLabel="Tap again to delete" onConfirm={() => void deleteAccount()} disabled={busy} />
+                  </>
+                )}
+              </div>
             </div>
           )}
         </section>
 
         <footer className="px-2 pt-2 pb-4 text-center text-[12.5px] leading-relaxed" style={{ color: "var(--dim)" }}>
           <p>A fan-made checklist for the Nintendo Switch 2 remake. Not affiliated with Nintendo.</p>
+          <p className="mt-1">Official art © Nintendo, from Zelda Wiki's remake galleries.</p>
           <p className="mt-1.5">
-            Sources:{" "}
-            <a href="https://www.rpgsite.net/guide/21634-the-legend-zelda-ocarina-time-remake-gold-skulltula-locations-guide-all-100-token-locations" target="_blank" rel="noreferrer" className="underline">
-              Skulltulas
-            </a>{" "}
-            ·{" "}
-            <a href="https://www.rpgsite.net/guide/21635-the-legend-zelda-ocarina-time-remake-heart-piece-locations-guide" target="_blank" rel="noreferrer" className="underline">
-              Heart pieces
-            </a>{" "}
-            ·{" "}
-            <a href="https://gamingroute.com/ocarina-of-time-heart-pieces/" target="_blank" rel="noreferrer" className="underline">
-              GamingRoute
+            <a href="https://github.com/helv-io/oot2-tracker/blob/main/DATA-SOURCES.md" target="_blank" rel="noreferrer" className="underline">
+              Sources
             </a>{" "}
             ·{" "}
             <a href="/privacy" className="underline">
@@ -987,19 +1277,62 @@ export function App() {
         </footer>
       </main>
 
+      {/* ---------- Group complete fanfare ---------- */}
+      {fanfare && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }} aria-live="polite">
+          <div
+            key={fanfare}
+            className="rise-in flex items-center gap-2.5 rounded-full px-4 py-2"
+            style={{ background: "linear-gradient(180deg, #24382b, #142119)", border: "1px solid var(--gold)", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}
+          >
+            <Sprite name="triforce" size={22} className="glow" />
+            <span className="font-display text-[15px] text-[#f6eedb]">{fanfare} complete</span>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- 100% finale ---------- */}
+      {finale && (
+        <div
+          className="fade-in fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ background: "rgba(6,9,7,0.78)", backdropFilter: "blur(4px)" }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finale-title"
+          onClick={() => setFinale(false)}
+        >
+          <div className="rise-in flex max-w-sm flex-col items-center text-center">
+            <img src={ART["logo-640-webp"]} alt="" aria-hidden="true" className="w-[240px]" />
+            <Sprite name="triforce" size={64} className="glow mt-3" />
+            <h2 id="finale-title" className="font-display mt-3 text-[26px] text-[#f6eedb]">
+              Hyrule is complete
+            </h2>
+            <p className="mt-1 text-[15px] text-[#d8ccaf]">All {TOTAL_ITEMS}. Every token, heart and secret.</p>
+            <button type="button" onClick={() => setFinale(false)} className={`${pill} mt-5`} style={goldButton}>
+              Wonderful
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ---------- Toast ---------- */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }} aria-live="polite" role="status">
         {toast && (
           <span
             key={toast.id}
-            className="font-display rounded-full px-4 py-2 text-[14px] font-bold shadow-lg"
+            className="rise-in inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold"
             style={{
-              background: toast.tone === "ok" ? "var(--forest)" : "#7a2a22",
-              color: "#f5ecd4",
-              border: "1.5px solid var(--gold)",
+              background: toast.tone === "ok" ? "#17241b" : "#5e2420",
+              color: "#f6eedb",
+              border: `1px solid ${toast.tone === "ok" ? "rgba(230,205,138,0.6)" : "rgba(255,180,160,0.5)"}`,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
             }}
           >
-            {toast.tone === "ok" ? "✓ " : ""}
+            {toast.tone === "ok" && (
+              <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M4 10.5 L8.2 14.5 L16 6" fill="none" stroke="#e6cd8a" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
             {toast.text}
           </span>
         )}
@@ -1009,7 +1342,7 @@ export function App() {
       {syncModalOpen && conflictKeys && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
-          style={{ background: "rgba(16,22,14,0.66)" }}
+          style={{ background: "rgba(8,12,10,0.62)", backdropFilter: "blur(3px)" }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="sync-choice-title"
@@ -1019,13 +1352,13 @@ export function App() {
         >
           <div
             ref={modalRef}
-            className="w-full max-w-md overflow-hidden rounded-xl"
-            style={{ background: "var(--surface)", border: "2px solid var(--gold)", boxShadow: "0 16px 44px rgba(20,14,4,0.45)" }}
+            className="rise-in w-full max-w-md overflow-hidden rounded-2xl"
+            style={{ background: "var(--surface)", border: "1px solid var(--gold)", boxShadow: "0 20px 50px rgba(0,0,0,0.45)" }}
           >
-            <div className="px-5 py-4" style={{ background: "linear-gradient(160deg, #1e3a29, #14231a)", borderBottom: "2px solid var(--gold)" }}>
+            <div className="px-5 py-4" style={{ background: "linear-gradient(160deg, #1f3327, #0f1a13)", borderBottom: "1px solid var(--gold)" }}>
               <div className="flex items-center gap-2">
-                <TriforceIcon size={18} />
-                <h2 id="sync-choice-title" className="font-display text-lg font-bold text-[#f5ecd4]">
+                <Sprite name="triforce" size={20} />
+                <h2 id="sync-choice-title" className="font-display text-lg text-[#f6eedb]">
                   Which progress to keep?
                 </h2>
               </div>
@@ -1041,7 +1374,7 @@ export function App() {
                 className="rounded-lg px-4 py-3 text-left"
                 style={{ ...goldButton, minHeight: 48 }}
               >
-                <span className="font-display block text-[15px] font-bold">Merge both</span>
+                <span className="block text-[15px] font-semibold">Merge both</span>
                 <span className="block text-[13px] leading-snug">Keep everything done on either side.</span>
               </button>
               <button
@@ -1049,9 +1382,9 @@ export function App() {
                 onClick={resolvePush}
                 disabled={busy}
                 className="rounded-lg px-4 py-3 text-left"
-                style={{ background: "var(--forest)", color: "#f5ecd4", border: "1.5px solid var(--border)", minHeight: 48 }}
+                style={{ ...quietButton, minHeight: 48 }}
               >
-                <span className="font-display block text-[15px] font-bold">Keep this device</span>
+                <span className="block text-[15px] font-semibold">Keep this device</span>
                 <span className="block text-[13px] leading-snug">Replace the account's progress.</span>
               </button>
               <button
@@ -1059,9 +1392,9 @@ export function App() {
                 onClick={resolvePull}
                 disabled={busy}
                 className="rounded-lg px-4 py-3 text-left"
-                style={{ background: "var(--surface-alt)", color: "var(--text)", border: "1.5px solid var(--border)", minHeight: 48 }}
+                style={{ ...quietButton, background: "var(--surface-alt)", minHeight: 48 }}
               >
-                <span className="font-display block text-[15px] font-bold">Keep my account</span>
+                <span className="block text-[15px] font-semibold">Keep my account</span>
                 <span className="block text-[13px] leading-snug">Replace this device's progress.</span>
               </button>
               <button

@@ -6,7 +6,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomBytes } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join, normalize, sep } from "node:path";
 import { PRIVACY_HTML } from "./privacy.js";
 
@@ -17,6 +17,16 @@ const MAX_BODY_BYTES = 64 * 1024;
 // The catalog has 272 deeds; leave headroom for future additions while
 // keeping one account from filling the database with junk keys.
 const MAX_CHECKS_PER_USER = 1000;
+// Reported by /healthz so deploys (and the screenshot job) can tell
+// which release is live.
+const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version || "dev";
+  } catch {
+    return "dev";
+  }
+})();
+
 const ITEM_KEY_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 const MIME = {
@@ -28,13 +38,15 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".jpg": "image/jpeg",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
   ".txt": "text/plain; charset=utf-8",
 };
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".webmanifest", ".svg", ".txt"]);
 // build.mjs names bundles main-<hash>.js / main-<hash>.css.
-const HASHED_ASSET_RE = /-[A-Za-z0-9_]{8,}\.(js|css)$/;
+const HASHED_ASSET_RE = /-[A-Za-z0-9_]{8,}\.(js|css|webp|avif|png)$/;
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -475,7 +487,8 @@ export function createApp(opts) {
 
     const ext = extname(file);
     let cacheControl = "no-cache";
-    if (HASHED_ASSET_RE.test(file)) cacheControl = "public, max-age=31536000, immutable";
+    if (rel === "/sw.js") cacheControl = "no-cache";
+    else if (HASHED_ASSET_RE.test(file)) cacheControl = "public, max-age=31536000, immutable";
     else if (file.includes(`${sep}fonts${sep}`)) cacheControl = "public, max-age=2592000";
     else if (ext !== ".html") cacheControl = "public, max-age=86400";
 
@@ -520,7 +533,7 @@ export function createApp(opts) {
       const p = url.pathname;
       if (p === "/healthz") {
         stmt.ping.get();
-        return sendJson(res, 200, { ok: true });
+        return sendJson(res, 200, { ok: true, version: VERSION });
       }
       if (p === "/privacy") return handlePrivacy(req, res);
       if (p === "/auth/google") return handleGoogleStart(req, res);
