@@ -219,6 +219,9 @@ function handleLogout(req, res) {
 
 // ---------------------------------------------------------------- api ----
 async function handleApi(req, res, url) {
+  console.log(
+    `api ${req.method} ${url.pathname} ua=${JSON.stringify(req.headers["user-agent"] ?? "")} cookie=${parseCookies(req)[SESSION_COOKIE] ? "session" : "none"}`,
+  );
   if (url.pathname === "/api/auth/me") {
     const user = currentUser(req);
     return sendJson(res, 200, {

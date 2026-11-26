@@ -550,11 +550,11 @@ export function App() {
               <div className="flex flex-col items-center gap-2">
                 <p className="text-[13px] leading-snug text-[#d8c9a3]">
                   Not signed in — every tick is saved on this device.
-                  {googleConfigured
+                  {googleConfigured || sessionQuery.isError
                     ? " Sign in with Google and your journey follows you to any screen."
                     : " Google sign-in isn't switched on for this shrine yet."}
                 </p>
-                {googleConfigured && signInButton}
+                {(googleConfigured || sessionQuery.isError) && signInButton}
               </div>
             )}
             {accountState === "connecting" && (
