@@ -8,7 +8,9 @@ Notes for agents working on oot2-tracker.
 - `npm run check` must pass before you push: typecheck, tests, build.
 - Release by tagging `vX.Y.Z` on main. The Release workflow runs CI and
   publishes `ghcr.io/helv-io/oot2-tracker`; Komodo auto-updates
-  `latest` on yolo. Verify https://oot.helv.io/healthz afterwards.
+  `latest` on yolo. Verify https://oot.helv.io/healthz reports the new
+  `version`. Komodo's poll can lag; if it's still old after ~10 minutes,
+  deploy the `oot` stack in Komodo (the Screenshots job waits 20).
 - The Komodo stack is `oot`. Change it only through Komodo, never by
   editing compose files on the server. It follows the other helv.io
   stacks: `network_mode: web`, Traefik labels on `websecure`, data in
