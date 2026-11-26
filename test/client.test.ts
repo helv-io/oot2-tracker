@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { WriteQueue, toPatch, type Patch } from "../client/src/lib/sync.ts";
 import { reconcile } from "../client/src/lib/reconcile.ts";
 import { SECTIONS, ALL_ITEMS, TOTAL_ITEMS } from "../client/src/data/catalog.ts";
+import { buildChecklistPdf } from "../client/src/pdf.ts";
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
@@ -133,4 +134,17 @@ test("every item has an official icon and every area a colour", async () => {
   }
   for (const place of [...Object.values(PLACES), ...Object.values(ERA_LOOK)]) assert.ok(files.has(place.icon), place.icon);
   for (const item of ALL_ITEMS) assert.ok(!item.area || PLACES[item.area], `area has a colour: ${item.area}`);
+});
+
+test("the printable PDF is a valid document with a bezel on every page", async () => {
+  const blob = buildChecklistPdf(new Set(["story-1"]));
+  const bytes = Buffer.from(await blob.arrayBuffer());
+  const text = bytes.toString("latin1");
+  assert.equal(text.slice(0, 8), "%PDF-1.4");
+  assert.ok(text.includes("%%EOF"));
+  assert.ok(text.includes("0.68 0.54 0.22"), "gold bezel stroke");
+  const pages = text.match(/\/Type \/Page /g)?.length ?? 0;
+  const bezels = text.match(/q\n1 J 1 j/g)?.length ?? 0;
+  assert.ok(pages >= 2);
+  assert.equal(bezels, pages);
 });

@@ -87,11 +87,20 @@ build.mjs                 production build -> dist/
 ```sh
 python3 scripts/official-art.py   # official remake art -> client/assets/official/ + app icons
 python3 scripts/readme-art.py     # README banners and dividers -> docs/art/
+python3 scripts/social-preview.py  # GitHub social preview -> docs/social-preview.png
 ```
 
 `official-art.py` downloads from Zelda Wiki, crops, pads and converts to
 WebP/AVIF, draws the custom gold Triforce, and regenerates
 `client/src/data/art.generated.ts` and `client/assets/official/SOURCES.md`.
+
+## Motion e2e
+
+After a build, `npm run test:e2e` opens the app in Playwright (Chromium
+and WebKit, desktop and phone), expands and collapses a group, scrolls
+under the sticky bar, and fails if a header overlaps its body or an
+icon paints outside its card. Mid-animation screenshots go to
+`/tmp/e2e-motion/`. CI runs the same job.
 
 ## Screenshots
 

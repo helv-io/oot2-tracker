@@ -46,6 +46,10 @@ Notes for agents working on oot2-tracker.
   gold gradient in `scripts/readme-art.py` for the README.
 - Colours: region tones in `look.ts`, muted, used as accents and section
   headers only. Headings in Marcellus SC, text in Inter.
+- Group cards expand and collapse by animating `grid-template-rows`
+  (0fr to 1fr), never height, transform or will-change on the card.
+  Cards use `isolation: isolate`; the header is opaque with a z-index.
+  Do not put `backdrop-filter` or blur on sticky or scrolling chrome.
 
 ## How it fits together
 
@@ -84,3 +88,14 @@ Notes for agents working on oot2-tracker.
   before committing.
 - Progress is seeded in the script so runs are comparable. If you
   rename ids in the seed, keep it showing a partly done list.
+
+## GitHub social preview
+
+- The image is `docs/social-preview.png`: 1280x640 PNG, under 1 MB, with
+  Link, the official logo, the gold Triforces and the tagline
+  `oot.helv.io` all inside a 40 px safe border.
+- Regenerate it with `python3 scripts/social-preview.py` (same official
+  art cache as `official-art.py`, default `--raw /tmp/oot-assets/raw`).
+- GitHub has no API for the repo social preview. After changing the
+  file, a human has to upload it in the web UI: Settings, General,
+  Social preview. Use the file in the repo; do not crop or resize it.

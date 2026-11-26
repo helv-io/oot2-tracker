@@ -313,9 +313,9 @@ function GroupBlock({
 
   const title = group.title.replace(/: All \d+$/, "");
   return (
-    <section id={`grp-${group.key}`} className="scroll-mt-40">
+    <section id={`grp-${group.key}`} className="group-card scroll-mt-40">
       <div
-        className="overflow-hidden"
+        className="group-card-inner"
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border)",
@@ -325,6 +325,7 @@ function GroupBlock({
       >
         <div
           ref={headRef}
+          className="group-head"
           style={{
             background: `linear-gradient(100deg, color-mix(in srgb, ${color} var(--tint), var(--surface)) 0%, var(--surface) 70%)`,
             borderLeft: `3px solid ${color}`,
@@ -366,10 +367,10 @@ function GroupBlock({
             </h2>
           )}
         </div>
-        {isOpen && (
-          <div id={bodyId} className="fade-in">
+        <div id={bodyId} className={isOpen ? "group-body is-open" : "group-body"} inert={!isOpen || undefined}>
+          <div className="group-body-inner">
             {group.blurb && !filtering && (
-              <p className="px-4 pt-1 pb-3 text-[13.5px] leading-relaxed" style={{ color: "var(--dim)" }}>
+              <p className="group-blurb px-4 pt-1 pb-3 text-[13.5px] leading-relaxed" style={{ color: "var(--dim)" }}>
                 {group.blurb}
               </p>
             )}
@@ -387,7 +388,7 @@ function GroupBlock({
               ))}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </section>
   );
@@ -1011,9 +1012,7 @@ export function App() {
       <div
         className="sticky top-0 z-20 px-4 py-2.5"
         style={{
-          background: "color-mix(in srgb, var(--bg) 88%, transparent)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
+          background: "var(--bg)",
           borderBottom: "1px solid var(--border)",
           paddingTop: "max(0.625rem, env(safe-area-inset-top))",
         }}
