@@ -1,0 +1,9 @@
+{
+  "name": "Ocarina of Time 100% Checklist",
+  "short_name": "OoT 100%",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101c14",
+  "theme_color": "#1e3a29",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

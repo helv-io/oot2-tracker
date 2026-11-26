@@ -1,43 +1,83 @@
 // Production build: bundle the React client with esbuild and compile the
 // Tailwind v4 stylesheet with the Tailwind CLI. Output goes to dist/,
-// which server/server.js serves.
+// which server/app.js serves.
+//
+// Bundles get content-hashed names (main-<hash>.js / .css) so the server
+// can cache them forever; index.html is served no-cache and points at
+// the current hashes. Text assets are precompressed (.br + .gz).
 
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, copyFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
-mkdirSync("dist/assets", { recursive: true });
+const DIST = "dist";
+const ASSETS = join(DIST, "assets");
+rmSync(DIST, { recursive: true, force: true });
+mkdirSync(join(ASSETS, "fonts"), { recursive: true });
 
-await build({
+const js = await build({
   entryPoints: ["client/src/main.tsx"],
   bundle: true,
   format: "esm",
   // The sources use JSX without importing React, so the automatic runtime
-  // is required — esbuild's default classic transform emits bare
-  // React.createElement calls that throw "React is not defined" in the
-  // browser and leave the page blank.
+  // is required.
   jsx: "automatic",
   target: "es2022",
   minify: true,
   sourcemap: false,
-  outfile: "dist/assets/main.js",
+  outdir: ASSETS,
+  entryNames: "[name]-[hash]",
+  metafile: true,
+  define: { "process.env.NODE_ENV": '"production"' },
   logLevel: "info",
   // theme.css is compiled by the Tailwind CLI below, not by esbuild.
   loader: { ".css": "empty" },
 });
+const jsFile = Object.keys(js.metafile.outputs).find((p) => p.endsWith(".js"));
+const jsName = jsFile.split("/").pop();
 
-execFileSync(
-  "npx",
-  [
-    "tailwindcss",
-    "-i",
-    "client/src/theme.css",
-    "-o",
-    "dist/assets/main.css",
-    "--minify",
-  ],
-  { stdio: "inherit" },
-);
+const cssTmp = join(ASSETS, "main.css");
+execFileSync("npx", ["tailwindcss", "-i", "client/src/theme.css", "-o", cssTmp, "--minify"], { stdio: "inherit" });
+const cssHash = createHash("sha256").update(readFileSync(cssTmp)).digest("hex").slice(0, 10);
+const cssName = `main-${cssHash}.css`;
+renameSync(cssTmp, join(ASSETS, cssName));
 
-copyFileSync("client/index.html", "dist/index.html");
-console.log("client built -> dist/");
+// Self-hosted fonts (no Google Fonts request, so no third-party calls).
+const FONTS = [
+  ["cinzel", "cinzel-latin-600-normal.woff2"],
+  ["cinzel", "cinzel-latin-700-normal.woff2"],
+  ["cinzel", "cinzel-latin-800-normal.woff2"],
+  ["alegreya", "alegreya-latin-400-normal.woff2"],
+  ["alegreya", "alegreya-latin-400-italic.woff2"],
+  ["alegreya", "alegreya-latin-600-normal.woff2"],
+  ["alegreya", "alegreya-latin-700-normal.woff2"],
+];
+for (const [pkg, file] of FONTS) {
+  copyFileSync(join("node_modules", "@fontsource", pkg, "files", file), join(ASSETS, "fonts", file));
+}
+
+for (const file of ["favicon.svg", "manifest.webmanifest"]) copyFileSync(join("client", file), join(DIST, file));
+const html = readFileSync("client/index.html", "utf8")
+  .replaceAll("%MAIN_JS%", `/assets/${jsName}`)
+  .replaceAll("%MAIN_CSS%", `/assets/${cssName}`);
+writeFileSync(join(DIST, "index.html"), html);
+
+// Precompress every text asset.
+function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)],
+  );
+}
+for (const file of walk(DIST)) {
+  if (!/\.(html|js|css|svg|webmanifest)$/.test(file)) continue;
+  const data = readFileSync(file);
+  writeFileSync(`${file}.gz`, gzipSync(data, { level: 9 }));
+  writeFileSync(
+    `${file}.br`,
+    brotliCompressSync(data, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }),
+  );
+}
+console.log(`client built -> ${DIST}/ (${jsName}, ${cssName})`);

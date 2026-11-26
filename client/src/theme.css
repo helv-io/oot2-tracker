@@ -1,6 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Alegreya:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 @import "tailwindcss-safe-area";
+
+/* Self-hosted fonts (copied to dist/assets/fonts by build.mjs). */
+@font-face { font-family: "Cinzel"; font-style: normal; font-weight: 600; font-display: swap; src: url("/assets/fonts/cinzel-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Cinzel"; font-style: normal; font-weight: 700; font-display: swap; src: url("/assets/fonts/cinzel-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Cinzel"; font-style: normal; font-weight: 800; font-display: swap; src: url("/assets/fonts/cinzel-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Alegreya"; font-style: normal; font-weight: 400; font-display: swap; src: url("/assets/fonts/alegreya-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Alegreya"; font-style: italic; font-weight: 400; font-display: swap; src: url("/assets/fonts/alegreya-latin-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "Alegreya"; font-style: normal; font-weight: 600; font-display: swap; src: url("/assets/fonts/alegreya-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Alegreya"; font-style: normal; font-weight: 700; font-display: swap; src: url("/assets/fonts/alegreya-latin-700-normal.woff2") format("woff2"); }
 
 @theme {
   --text-xs: 12px;
