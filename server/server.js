@@ -374,7 +374,10 @@ async function handleStatic(req, res, url) {
     const data = await readFile(file);
     res.writeHead(200, {
       "Content-Type": MIME[extname(file)] || "application/octet-stream",
-      "Cache-Control": file.endsWith("index.html") ? "no-cache" : "public, max-age=3600",
+      // Everything revalidates: the bundle URL is unversioned apart from a
+      // query tag in index.html, and a long max-age here stranded clients
+      // on a stale (broken) bundle after the 2026-11-26 fix deploy.
+      "Cache-Control": "no-cache",
     });
     res.end(data);
   } catch {
