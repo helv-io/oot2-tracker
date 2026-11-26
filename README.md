@@ -2,7 +2,7 @@
   <a href="https://oot.helv.io">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/art/banner-dark.svg">
-      <img src="docs/art/banner-light.svg" alt="The Legend of Zelda: Ocarina of Time — 100% Checklist" width="900">
+      <img src="docs/art/banner-light.svg" alt="The Legend of Zelda: Ocarina of Time · 100% Checklist" width="900">
     </picture>
   </a>
 </p>

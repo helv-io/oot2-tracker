@@ -14,8 +14,8 @@ function sanitize(text: string): string {
   return text
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
-    .replace(/—/g, "-")
-    .replace(/–/g, "-")
+    .replace(/\u2014/g, "-")
+    .replace(/\u2013/g, "-")
     .replace(/…/g, "...")
     .replace(/[^\x20-\x7E]/g, "");
 }
@@ -27,7 +27,7 @@ function escapePdf(text: string): string {
     .replace(/\)/g, "\\)");
 }
 
-// Rough Helvetica average glyph width (~0.5 em) — good enough for wrap.
+// Rough Helvetica average glyph width (~0.5 em), good enough for wrap.
 function wrap(text: string, fontSize: number, maxWidth: number): string[] {
   const maxChars = Math.max(12, Math.floor(maxWidth / (fontSize * 0.485)));
   const words = sanitize(text).split(/\s+/);

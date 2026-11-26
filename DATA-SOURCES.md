@@ -28,7 +28,7 @@ new ids: `bot-5` and `egg-15` in v1.2.0.
 | Trading timers | Mushroom 3 min, frog 3 min, drops 4 min | Mushroom **4 min**, frog **2.5 min**, drops **3.5 min** | `trade-3`, `trade-8`, `trade-9` | Zelda Wiki: [Odd Mushroom][zw-mushroom], [Eyeball Frog][zw-frog], [Receipt][zw-receipt] |
 | Running Man | Fills your wallet for the Bunny Hood | Pays a Gold Rupee (200) | `mask-4` | [Zelda Wiki: Bunny Hood][zw-bunny] |
 | Wallets | Child's 99, Adult's 200, Giant's 500 | Kokiri Wallet 200, Adult's 500, Giant's 1,000 | `skr-1`, `skr-3` | Zelda Wiki: [Kokiri Wallet][zw-kwallet], [Adult's Wallet][zw-awallet], [Giant's Wallet][zw-gwallet] (in-game Collection text) |
-| Hall of Fallen Foes | — | New: sleep in a glowing green bed to rematch bosses | `egg-15` | [Zelda Wiki promo screenshots][zw-files] |
+| Hall of Fallen Foes | none | New: sleep in a glowing green bed to rematch bosses | `egg-15` | [Zelda Wiki promo screenshots][zw-files] |
 
 ## Corrections that aren't remake changes
 

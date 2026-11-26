@@ -18,6 +18,14 @@ Notes for agents working on oot2-tracker.
 - Google OAuth credentials live in the Komodo stack environment. Never
   print or commit them.
 
+- No em dashes (U+2014) anywhere: not in the UI, the catalog, comments,
+  docs, or commit messages you write. Rewrite them with a colon, a comma,
+  a period, parentheses, or a middle dot (·) for title separators. Don't
+  swap in an en dash or a hyphen. The same goes for en dashes (U+2013)
+  used as dashes. `test/no-dashes.test.js` fails the build if either
+  character shows up in source, data or docs.
+
+
 ## UI conventions
 
 - Friendly at first glance; advanced things go behind a collapsed caret

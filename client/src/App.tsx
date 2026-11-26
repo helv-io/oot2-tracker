@@ -311,7 +311,7 @@ function GroupBlock({
     prevDone.current = doneCount;
   }, [doneCount, total, group, onComplete, readOnly]);
 
-  const title = group.title.replace(/ — All \d+$/, "");
+  const title = group.title.replace(/: All \d+$/, "");
   return (
     <section id={`grp-${group.key}`} className="scroll-mt-40">
       <div
@@ -667,7 +667,7 @@ export function App() {
     const box = el?.getBoundingClientRect();
     celebrate({ x: box ? box.left + 40 : undefined, y: box ? box.top + 32 : undefined });
     buzz([14, 40, 22]);
-    setFanfare(group.title.replace(/ — All \d+$/, ""));
+    setFanfare(group.title.replace(/: All \d+$/, ""));
   }, []);
 
   useEffect(() => {
@@ -1133,7 +1133,7 @@ export function App() {
                 style={{ background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", minHeight: 32 }}
               >
                 <span className="h-2 w-2 rounded-full" style={{ background: tone(group.tone) }} aria-hidden="true" />
-                {group.title.replace(/ — All.*$/, "")}
+                {group.title.replace(/: All.*$/, "")}
               </a>
             ))}
           </div>

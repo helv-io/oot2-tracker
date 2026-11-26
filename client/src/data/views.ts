@@ -1,7 +1,7 @@
 // Alternative perspectives on the same catalog. The checklist's deeds
 // are stored once (in catalog.ts) and checked off by item id; these
-// builders simply regroup the very same items — by the place they happen
-// and by the era of Link who does them — so a stone or medallion shows
+// builders simply regroup the very same items by the place they happen
+// and by the era of Link who does them, so a stone or medallion shows
 // up on the journey, in its home town, and in its era's list alike.
 
 import { ALL_ITEMS, SECTIONS, type CatalogItem } from "./catalog";
@@ -38,7 +38,7 @@ export function journeyGroups(): ViewGroup[] {
 
 /**
  * Every deed grouped under the place it happens, in the order those
- * places first appear along the journey — so clearing out one town or
+ * places first appear along the journey, so clearing out one town or
  * dungeon in a single visit is easy to plan.
  */
 export function locationGroups(): ViewGroup[] {
@@ -81,7 +81,7 @@ export function eraGroups(): ViewGroup[] {
       ...ERA_LOOK["era-child"],
       title: "Child Link",
       blurb:
-        "Everything young Link can do before the Master Sword sleeps him for seven years — the three Spiritual Stones live here, alongside every bean planted and every soft-soil patch tended.",
+        "Everything young Link can do before the Master Sword sleeps him for seven years. The three Spiritual Stones live here, alongside every bean planted and every soft-soil patch tended.",
       items: buckets.child,
     },
     {
@@ -97,7 +97,7 @@ export function eraGroups(): ViewGroup[] {
       ...ERA_LOOK["era-either"],
       title: "Either Era",
       blurb:
-        "Deeds that belong to both eras — or span them, like a bean planted by a child and ridden by the man he becomes.",
+        "Deeds that belong to both eras, or span them, like a bean planted by a child and ridden by the man he becomes.",
       items: buckets.either,
     },
   ];

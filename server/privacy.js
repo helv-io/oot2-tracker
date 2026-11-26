@@ -5,7 +5,7 @@ export const PRIVACY_HTML = `<!doctype html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy Policy — OoT 100% Tracker</title>
+    <title>Privacy Policy · OoT 100% Tracker</title>
     <style>
       body { font-family: Georgia, 'Times New Roman', serif; background: #e9dcbc; color: #2a1e10;
              margin: 0; padding: 2rem 1.25rem 3rem; line-height: 1.55; }
@@ -18,13 +18,12 @@ export const PRIVACY_HTML = `<!doctype html>
   </head>
   <body>
     <main>
-      <h1>Privacy Policy — OoT 100% Tracker</h1>
+      <h1>Privacy Policy · OoT 100% Tracker</h1>
       <p><em>Last updated: November 26, 2026</em></p>
       <p>
         OoT 100% Tracker (https://oot.helv.io) is a fan-made checklist for
         <em>The Legend of Zelda: Ocarina of Time</em>. It is not affiliated
-        with Nintendo. This page says exactly what the app stores — no more,
-        no less.
+        with Nintendo. This page says exactly what the app stores, no more and no less.
       </p>
       <h2>What we store</h2>
       <p>
@@ -36,7 +35,7 @@ export const PRIVACY_HTML = `<!doctype html>
         <strong>If you sign in with Google:</strong> we store your Google
         account ID, your email address, and the name and profile-picture URL
         Google provides, together with your checklist progress (which of the
-        272 deeds you have ticked). This is stored in the app's own database
+        274 deeds you have ticked). This is stored in the app's own database
         so your progress can follow you between devices. A session cookie is
         used to keep you signed in; it contains only a random session
         identifier.
@@ -46,7 +45,7 @@ export const PRIVACY_HTML = `<!doctype html>
         We do not run analytics or advertising, we do not load fonts or
         scripts from other sites, we do not track you across other sites, and we never sell or share your information with third
         parties. The app asks Google only for your basic identity (name,
-        email, profile picture) — it cannot read your email, files, or any
+        email, profile picture). It cannot read your email, files, or any
         other Google data.
       </p>
       <h2>Deleting your data</h2>

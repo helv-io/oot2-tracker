@@ -1,5 +1,5 @@
 # Publishes ghcr.io/helv-io/oot2-tracker on every version tag (v*),
-# linux/amd64 and linux/arm64 — the same release pattern as the other
+# linux/amd64 and linux/arm64, the same release pattern as the other
 # helv-io projects (skgate, ghook).
 #
 # Tags on a stable vX.Y.Z:

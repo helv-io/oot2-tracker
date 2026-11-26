@@ -1,5 +1,5 @@
 // oot2-tracker HTTP app: static client + Google OAuth + per-user checklist
-// progress in SQLite. Plain Node (>=22.5) with the built-in node:sqlite —
+// progress in SQLite. Plain Node (>=22.5) with the built-in node:sqlite:
 // no runtime dependencies. server.js wires it to env vars and a port;
 // tests build it directly with createApp().
 
