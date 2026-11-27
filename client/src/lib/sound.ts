@@ -9,7 +9,10 @@
 // Real browsers use a pair of <audio> elements so play() can run in the
 // gesture and a second deck is already unlocked for the next track.
 // Playwright's Linux WebKit crashes if those files are used as a media
-// src, so automated WebKit falls back to fetch + decodeAudioData.
+// src, and decodeAudioData of the same files has also been seen to take
+// the page down later in a run. Automated WebKit therefore does not
+// load audio at all; unlock() still counts the gesture so e2e can tell
+// that the retry path ran.
 
 export const SOUND_KEY = "oot-100-checklist:sound:v1";
 /** Quiet enough to sit under the page, about a third of the old 0.1. */
@@ -400,6 +403,9 @@ class Sound {
   }
 
   private loadBuffer(name: string): Promise<AudioBuffer | null> {
+    // useElement is false only for Playwright WebKit, where both an
+    // <audio> src and decodeAudioData of these files can crash the page.
+    if (!this.useElement) return Promise.resolve(null);
     let p = this.buffers.get(name);
     if (!p) {
       const ctx = this.ctx;
@@ -425,6 +431,10 @@ class Sound {
   }
 
   private async startBufferMusic(): Promise<void> {
+    if (!this.useElement) {
+      this.publish();
+      return;
+    }
     if (this.bufferSources.some(Boolean)) {
       void this.ctx?.resume().catch(() => undefined);
       this.beginFade();

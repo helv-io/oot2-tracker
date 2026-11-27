@@ -96,8 +96,10 @@ Notes for agents working on oot2-tracker.
   and resume. Prefer AAC unless `canPlayType` says "probably" for Opus,
   and fall back on error. The speaker button mutes both and is stored in
   `oot-100-checklist:sound:v1`. Audio is not cached by the service
-  worker (Range requests break Safari). Files come from
-  `scripts/make-audio.py`. Document any new sound in
+  worker (Range requests break Safari). Playwright's Linux WebKit must
+  not load the audio files (an `<audio>` src or `decodeAudioData` can
+  crash the page); the e2e only checks that a gesture was counted.
+  Files come from `scripts/make-audio.py`. Document any new sound in
   `client/assets/official/SOURCES.md`.
 
 ## How it fits together

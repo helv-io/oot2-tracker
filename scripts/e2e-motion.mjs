@@ -111,9 +111,11 @@ const engines = [
 
 try {
   for (const [engineName, engine] of engines) {
-    const browser = await engine.launch();
     for (const [vpName, opts] of Object.entries(VIEWPORTS)) {
       const tag = `${engineName}/${vpName}`;
+      // A fresh browser per viewport so a WebKit desktop page that
+      // loaded audio cannot take the mobile run down with it.
+      const browser = await engine.launch();
       const ctx = await browser.newContext({ ...opts, reducedMotion: "no-preference", colorScheme: "dark" });
       const page = await ctx.newPage();
       const errors = [];
@@ -121,7 +123,7 @@ try {
       page.on("crash", () => errors.push("page crashed"));
       const shot = async (name) => {
         try {
-          await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-${name}.png` });
+          await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-${name}.png`, timeout: 10_000 });
         } catch (err) {
           failures.push(`${tag} screenshot ${name}: ${String(err.message).split("\n")[0]}`);
         }
@@ -175,8 +177,8 @@ try {
         audio = again;
       }
       // Chromium plays through an <audio> element. Playwright's Linux WebKit
-      // crashes if those files are used as a media src, so it uses the
-      // decodeAudioData path and has no element; it must still retry.
+      // crashes if those files are used as a media src or decoded, so it
+      // never loads them; it must still count the gesture and retry.
       if (engineName === "chromium") {
         if (!audio.src) failures.push(`${tag} lullaby: no audio element after the first gesture`);
         if (audio.state !== "on") failures.push(`${tag} lullaby: expected to be playing after a gesture (state ${audio.state}, paused ${audio.paused})`);
@@ -303,8 +305,8 @@ try {
       }
       if (errors.length) failures.push(`${tag} pageerror: ${errors.join("; ")}`);
       await ctx.close().catch(() => undefined);
+      await browser.close().catch(() => undefined);
     }
-    await browser.close();
   }
 } finally {
   await stop();
