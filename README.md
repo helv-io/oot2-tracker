@@ -50,16 +50,18 @@ trade items), the list says so, with sources in
 
 - 🟢 **Official remake art.** Every item, place and section wears its in-game icon.
 - 🔴 **Region colours.** Forest green, Death Mountain red, Zora blue, Shadow violet, desert sand, royal gold. Muted, never loud.
-- 🔵 **Three views, one list.** Walk it by **Journey**, by **Places**, or by **Eras** (Child and Adult Link). Every group has its own progress ring.
-- 🟣 **Satisfying ticks.** A pop, a haptic tap, and a shower of Triforce shards when a group, or the whole game, is done.
-- 🟠 **Fast search.** Press `/`, type, and matches light up. Filter by status or era.
+- 🔵 **Four views, one list.** Walk it by **Journey**, by **Places**, by **Eras** (Child and Adult Link), or on the **Map**. Every group has its own progress ring.
+- 🗺️ **A map of Hyrule.** Each region fills with its colour as you finish it. Tap a region to jump to its list.
+- 🟣 **Satisfying ticks.** A pop and a haptic tap. Finish a section and you get an item-get moment with a fanfare. The Triforce fills as your total climbs.
+- 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status or era.
+- 🎵 **Zelda's Lullaby,** very faintly, after your first tap. The speaker button, top right, mutes music and fanfare and remembers it.
 - 🟡 **Share your progress** as a read-only link, or print it as a PDF.
 - ⚪ **Light, dark or auto**, installable as an app, and works offline.
 
 <p align="center">
   <img src="docs/screenshots/mobile-checklist.jpg" alt="Ticking items" width="30%">
   &nbsp;
-  <img src="docs/screenshots/mobile-places.jpg" alt="The Places view" width="30%">
+  <img src="docs/screenshots/mobile-map.jpg" alt="The Map view" width="30%">
   &nbsp;
   <img src="docs/screenshots/mobile-light.jpg" alt="Light theme" width="30%">
 </p>

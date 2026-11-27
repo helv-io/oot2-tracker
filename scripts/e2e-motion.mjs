@@ -162,6 +162,57 @@ try {
       const afterScroll = await page.evaluate(measure, "#grp-story");
       failures.push(...report(`${engineName}/${vpName} after-scroll`, afterScroll));
 
+      // Global search: "/" (desktop) or a tap, results, Enter jumps to the item.
+      const tag = `${engineName}/${vpName}`;
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (vpName === "desktop") await page.keyboard.press("/");
+      else await page.locator("#checklist-search").tap();
+      await page.locator("#checklist-search").fill("bottle");
+      await page.waitForTimeout(250);
+      const hitCount = await page.locator("#search-hits [role=option]").count();
+      if (hitCount < 3) failures.push(`${tag} search: expected bottle results, got ${hitCount}`);
+      const firstHit = await page.locator("#search-hits [role=option]").first().getAttribute("id");
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(900);
+      const jumped = await page.evaluate((hitId) => {
+        const el = document.getElementById(hitId.replace(/^hit-/, "item-"));
+        if (!el) return { ok: false, why: "row missing" };
+        const r = el.getBoundingClientRect();
+        const card = el.closest(".group-card");
+        const open = card?.querySelector(".group-body")?.classList.contains("is-open");
+        return { ok: r.top >= 0 && r.bottom <= innerHeight && !!open, why: `top ${Math.round(r.top)} open ${open}` };
+      }, firstHit);
+      if (!jumped.ok) failures.push(`${tag} search jump: ${jumped.why}`);
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-search-jump.png` });
+
+      // Map view: tap a region, its group opens and scrolls into view.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.getByRole("button", { name: "Map", exact: true }).click();
+      await page.locator(".hyrule-map").scrollIntoViewIfNeeded();
+      await page.locator('.map-region[aria-label^="Death Mountain"]').click();
+      await page.waitForTimeout(1100);
+      const region = await page.evaluate(measure, "#grp-map-mountain");
+      failures.push(...report(`${tag} map jump`, region));
+      if (!region.open) failures.push(`${tag} map: Death Mountain did not open`);
+      if (region.card && (region.card.t < 0 || region.card.t > 400)) failures.push(`${tag} map: group not scrolled into view (${Math.round(region.card.t)})`);
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-map-jump.png` });
+
+      // Item get: finish a section (Bottles) and capture the overlay mid-animation.
+      await page.evaluate(() => {
+        localStorage.setItem("oot-100-checklist:device-checks:v1", JSON.stringify(["bot-1", "bot-2", "bot-3", "bot-4"]));
+        localStorage.setItem("oot-100-checklist:prefs:v1", JSON.stringify({ view: "journey", theme: "dark" }));
+      });
+      await page.reload({ waitUntil: "networkidle" });
+      await page.locator("#grp-bottles button[aria-expanded]").first().click();
+      await page.waitForTimeout(450);
+      await page.locator("#item-bot-5 button[role=checkbox]").click();
+      await page.waitForTimeout(500);
+      const overlay = await page.locator(".item-get").count();
+      if (!overlay) failures.push(`${tag} item get: no overlay after finishing Bottles`);
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-item-get.png` });
+      const fill = await page.locator(".tf-top").first().evaluate((el) => getComputedStyle(el).clipPath);
+      if (!/inset/.test(fill)) failures.push(`${tag} triforce fill: ${fill}`);
+
       if (errors.length) failures.push(`${engineName}/${vpName} pageerror: ${errors.join("; ")}`);
       await ctx.close();
     }

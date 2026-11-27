@@ -162,3 +162,20 @@ Drawn here because the remake has no usable asset at the needed size, in the sam
 - `icons/triforce.webp`: the remake's only gold Triforce is a 58px Threads of Time icon, so
   this is a redraw in its burnished-gold style. The README banners and dividers use the same shape.
 - `client/icon-*.png`, `favicon.png`: the official Ocarina of Time icon on a plain night-green tile.
+- The Map view's Hyrule (`client/src/data/map.ts`): drawn here as soft regional islands. It is
+  not the game's map art, and no N64 or 3DS map is used.
+
+## Audio
+
+Nintendo publishes no downloadable recording of the Switch 2 remake's music or sound effects:
+Zelda Wiki's remake galleries host no audio files, and the soundtrack only streams in the
+Nintendo Music app, which can't be saved. Ripping a stream or trailer would break those
+services' terms, so both sounds are original renditions made by `scripts/make-audio.py`:
+
+- `client/assets/audio/lullaby.{webm,m4a}`: Zelda's Lullaby (composed by Koji Kondo,
+  © Nintendo) performed by a synthesized ocarina over a quiet harp, mono, about 38 s, looped.
+  Not the remake's recording.
+- `client/assets/audio/item-get.{webm,m4a}`: a short original "item get" style flourish, mono,
+  2.4 s. Not the game's jingle.
+
+If Nintendo releases the remake soundtrack for download, replace these and list the source here.

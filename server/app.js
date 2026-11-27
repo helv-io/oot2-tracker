@@ -42,6 +42,9 @@ const MIME = {
   ".jpg": "image/jpeg",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".webm": "audio/webm",
+  ".m4a": "audio/mp4",
   ".txt": "text/plain; charset=utf-8",
 };
 const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".webmanifest", ".svg", ".txt"]);
@@ -187,6 +190,7 @@ export function createApp(opts) {
     "font-src 'self'",
     "connect-src 'self'",
     "manifest-src 'self'",
+    "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self' https://accounts.google.com",

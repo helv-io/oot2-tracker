@@ -60,6 +60,24 @@ Notes for agents working on oot2-tracker.
   canvas on hidden tabs; under `prefers-reduced-motion` draw a still
   frame or nothing.
 
+- Views: Journey, Places, Eras, Map. The Map is a custom-drawn SVG
+  (`data/map.ts`, `components/HyruleMap.tsx`), never game map art. Every
+  catalog area belongs to exactly one map region (a test checks it).
+  Region fill follows completion; hover and focus change stroke only.
+- Search (`/`) lists results across every item and jumps to one by
+  opening its group and scrolling to the row. Map taps do the same for a
+  region's group. Both go through `jump` state and `openSignal`.
+- Completing a section shows the item-get overlay (a fixed layer, never
+  a transform on page content) and plays the fanfare. The hero Triforce
+  is `triforce.webp` clipped by overall progress; keep it the one shape.
+- Sound lives in `lib/sound.ts`: one Web Audio graph, music at
+  `MUSIC_VOLUME` (0.08 to 0.12), started on the first gesture, paused on
+  hidden tabs. The top-right speaker button mutes music and fanfare
+  together and is stored in `oot-100-checklist:sound:v1`. Audio files
+  are built by `scripts/make-audio.py` (Opus WebM plus AAC); they are
+  cached on first play, not precached. Document any new sound in
+  `client/assets/official/SOURCES.md`.
+
 ## How it fits together
 
 - Device progress is in localStorage (`oot-100-checklist:device-checks:v1`).

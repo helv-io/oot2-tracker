@@ -74,6 +74,7 @@ client/assets/official/   official remake art, optimized (see SOURCES.md there)
 client/sw.js              service worker template (filled by build.mjs)
 scripts/official-art.py   fetches and converts the official art
 scripts/readme-art.py     draws the README banners and dividers
+scripts/make-audio.py     synthesizes the music and fanfare (numpy + ffmpeg)
 scripts/screenshots.mjs   captures docs/screenshots/ from the live site
 client/src/pdf.ts         dependency-free PDF export (embeds Marcellus SC and Inter)
 server/app.js             HTTP app: static files, OAuth, API, security headers
@@ -88,6 +89,7 @@ build.mjs                 production build -> dist/
 python3 scripts/official-art.py   # official remake art -> client/assets/official/ + app icons
 python3 scripts/readme-art.py     # README banners and dividers -> docs/art/
 python3 scripts/social-preview.py  # GitHub social preview -> docs/social-preview.png
+python3 scripts/make-audio.py      # lullaby + item-get sound -> client/assets/audio/
 ```
 
 `official-art.py` downloads from Zelda Wiki, crops, pads and converts to

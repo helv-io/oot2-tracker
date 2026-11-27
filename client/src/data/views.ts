@@ -4,8 +4,9 @@
 // and by the era of Link who does them, so a stone or medallion shows
 // up on the journey, in its home town, and in its era's list alike.
 
-import { ALL_ITEMS, SECTIONS, type CatalogItem } from "./catalog";
-import { ERA_LOOK, ITEM_ICONS, SECTION_LOOK, placeOf, type Tone } from "./look";
+import { ALL_ITEMS, SECTIONS, type CatalogItem } from "./catalog.ts";
+import { ERA_LOOK, ITEM_ICONS, SECTION_LOOK, placeOf, type Tone } from "./look.ts";
+import { MAP_REGIONS, REGION_OF_AREA } from "./map.ts";
 
 export interface ViewGroup {
   key: string;
@@ -101,4 +102,21 @@ export function eraGroups(): ViewGroup[] {
       items: buckets.either,
     },
   ];
+}
+
+/**
+ * The Map view's groups: one per region drawn on the map (see map.ts),
+ * plus deeds with no single place, in map order.
+ */
+export function mapGroups(): ViewGroup[] {
+  const groups: ViewGroup[] = MAP_REGIONS.map((r) => ({
+    key: `map-${r.id}`,
+    title: r.name,
+    icon: r.icon,
+    tone: r.tone,
+    items: ALL_ITEMS.filter((i) => i.area && r.areas.includes(i.area)),
+  }));
+  const rest = ALL_ITEMS.filter((i) => !i.area || !REGION_OF_AREA.has(i.area));
+  if (rest.length) groups.push({ key: "map-across", title: "Across Hyrule", icon: "triforce", tone: "light", items: rest });
+  return groups;
 }

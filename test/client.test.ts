@@ -180,3 +180,34 @@ test("the printable PDF is a valid document with a bezel on every page", async (
   assert.ok(pages >= 2);
   assert.equal(bezels, pages);
 });
+
+test("the map covers every place, once, and its regions jump to real groups", async () => {
+  const { MAP_REGIONS, REGION_OF_AREA, smoothPath } = await import("../client/src/data/map.ts");
+  const { mapGroups } = await import("../client/src/data/views.ts");
+  const { PLACES, TONE_COLOR } = await import("../client/src/data/look.ts");
+  const seen = new Map<string, string>();
+  for (const r of MAP_REGIONS) {
+    assert.ok(TONE_COLOR[r.tone], `${r.id} tone`);
+    assert.ok(r.outline.length >= 5, `${r.id} outline`);
+    assert.match(smoothPath(r.outline), /^M[\d.,]+( C[\d.,\s]+)+Z$/);
+    for (const a of r.areas) {
+      assert.ok(PLACES[a], `${a} is a known place`);
+      assert.ok(!seen.has(a), `${a} in ${seen.get(a)} and ${r.id}`);
+      seen.set(a, r.id);
+    }
+  }
+  // Every place except the catch-all "Hyrule" sits in a region.
+  for (const a of Object.keys(PLACES)) if (a !== "Hyrule") assert.ok(REGION_OF_AREA.has(a), `${a} is on the map`);
+  const groups = mapGroups();
+  assert.equal(groups.reduce((n, g) => n + g.items.length, 0), TOTAL_ITEMS, "every item once");
+  for (const r of MAP_REGIONS) assert.ok(groups.some((g) => g.key === `map-${r.id}` && g.items.length > 0), r.id);
+});
+
+test("sound mute is remembered per device", async () => {
+  const { readMuted, SOUND_KEY, MUSIC_VOLUME } = await import("../client/src/lib/sound.ts");
+  const store = (v: string | null) => ({ getItem: (k: string) => (k === SOUND_KEY ? v : null) });
+  assert.equal(readMuted(store("muted")), true);
+  assert.equal(readMuted(store("on")), false);
+  assert.equal(readMuted(store(null)), false);
+  assert.ok(MUSIC_VOLUME >= 0.08 && MUSIC_VOLUME <= 0.12, "faint background music");
+});

@@ -20,6 +20,7 @@ mkdirSync(join(ASSETS, "fonts"), { recursive: true });
 mkdirSync(join(ASSETS, "fonts", "pdf"), { recursive: true });
 mkdirSync(join(ASSETS, "pdf", "icons"), { recursive: true });
 mkdirSync(join(ASSETS, "textures"), { recursive: true });
+mkdirSync(join(ASSETS, "audio"), { recursive: true });
 
 const js = await build({
   entryPoints: ["client/src/main.tsx"],
@@ -64,6 +65,11 @@ for (const file of readdirSync(join("client", "assets", "textures"))) {
   copyFileSync(join("client", "assets", "textures", file), join(ASSETS, "textures", file));
 }
 
+// Music and the item-get fanfare (see scripts/make-audio.py).
+for (const file of readdirSync(join("client", "assets", "audio"))) {
+  copyFileSync(join("client", "assets", "audio", file), join(ASSETS, "audio", file));
+}
+
 // Printable PDF fonts and section icons (fetched when the user downloads a PDF).
 for (const file of readdirSync(join("client", "assets", "fonts", "pdf"))) {
   if (!/\.(ttf|txt)$/.test(file)) continue;
@@ -106,7 +112,9 @@ function walk(dir) {
 // Service worker: precache everything under /assets so the checklist
 // (icons included) works offline after the first visit.
 const precache = walk(ASSETS)
-  .filter((f) => !/\.(br|gz)$/.test(f) && !/key-art-1600/.test(f))
+  // Audio comes in two formats and only one is ever used: the service
+  // worker caches it on first play instead of precaching both.
+  .filter((f) => !/\.(br|gz)$/.test(f) && !/key-art-1600/.test(f) && !/[\\/]audio[\\/]/.test(f))
   .map((f) => "/" + f.slice(DIST.length + 1).split("\\").join("/"))
   .sort();
 const version = createHash("sha256").update(precache.join("\n")).digest("hex").slice(0, 12);

@@ -12,21 +12,24 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "./api";
 import { ALL_ITEMS, SECTIONS, TOTAL_ITEMS, type CatalogItem } from "./data/catalog";
-import { ITEM_ICON, eraGroups, journeyGroups, locationGroups, type ViewGroup } from "./data/views";
+import { ITEM_ICON, eraGroups, journeyGroups, locationGroups, mapGroups, type ViewGroup } from "./data/views";
+import { MAP_REGIONS } from "./data/map";
 import { TONE_COLOR, placeOf, type Tone } from "./data/look";
 import { ART } from "./data/art.generated";
 import { Sprite } from "./components/Art";
 import { Fireflies } from "./components/Fireflies";
+import { HyruleMap, type RegionProgress } from "./components/HyruleMap";
 import { buildChecklistPdf } from "./pdf";
 import { WriteQueue, type QueueStatus } from "./lib/sync";
 import { reconcile, sameSet } from "./lib/reconcile";
 import { decodeProgress, encodeProgress } from "./lib/share";
 import { buzz, celebrate } from "./lib/celebrate";
 import { useInstallPrompt } from "./lib/pwa";
+import { armSoundOnFirstGesture, sound } from "./lib/sound";
 
 type StatusFilter = "all" | "todo" | "done";
 type AgeFilter = "all" | "Child" | "Adult";
-type ViewMode = "journey" | "places" | "eras";
+type ViewMode = "journey" | "places" | "eras" | "map";
 type ThemeMode = "system" | "light" | "dark";
 type AccountState = "signedout" | "connecting" | "synced" | "conflict" | "offline";
 
@@ -45,6 +48,22 @@ const HEART_IDS = SECTIONS.find((s) => s.id === "hearts")?.items.map((i) => i.id
 const HAYSTACK: ReadonlyMap<string, string> = new Map(
   ALL_ITEMS.map((i) => [i.id, `${i.name} ${i.detail} ${i.area ?? ""}`.toLowerCase()]),
 );
+const SECTION_TITLE: ReadonlyMap<string, string> = new Map(
+  SECTIONS.flatMap((s) => s.items.map((i) => [i.id, s.title.replace(/: All \d+$/, "")] as const)),
+);
+const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+/** Global search: name matches first, then descriptions, at most 8. */
+function searchItems(q: string): CatalogItem[] {
+  if (q.length < 2) return [];
+  const byName: CatalogItem[] = [];
+  const byText: CatalogItem[] = [];
+  for (const item of ALL_ITEMS) {
+    if (item.name.toLowerCase().includes(q)) byName.push(item);
+    else if ((HAYSTACK.get(item.id) ?? "").includes(q)) byText.push(item);
+  }
+  return [...byName, ...byText].slice(0, 8);
+}
 
 function readDeviceChecks(): Set<string> {
   try {
@@ -69,7 +88,7 @@ function readPrefs(): Prefs {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}") as Partial<Prefs>;
     return {
-      view: parsed.view === "places" || parsed.view === "eras" ? parsed.view : "journey",
+      view: parsed.view === "places" || parsed.view === "eras" || parsed.view === "map" ? parsed.view : "journey",
       filtersOpen: parsed.filtersOpen === true,
       theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
     };
@@ -156,10 +175,22 @@ function ProgressRing({ pct }: { pct: number }) {
         </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-[28px] leading-none text-[#f6eedb]">{pct}%</span>
-        <span className="mt-1 text-[10px] font-semibold tracking-[0.18em] text-[#d9c58f] uppercase">Complete</span>
+        <TriforceFill pct={pct} size={40} />
+        <span className="font-display mt-1 text-[22px] leading-none text-[#f6eedb]">{pct}%</span>
       </div>
     </div>
+  );
+}
+
+/** The one Triforce (triforce.webp), filling from the bottom with overall progress. */
+function TriforceFill({ pct, size }: { pct: number; size: number }) {
+  return (
+    <span className="triforce-fill" style={{ width: size, height: size }} aria-hidden="true">
+      <Sprite name="triforce" size={size} className="tf-base" />
+      <span className="tf-top" style={{ clipPath: `inset(${100 - Math.max(0, Math.min(100, pct))}% 0 0 0)` }}>
+        <Sprite name="triforce" size={size} className={pct >= 100 ? "glow" : ""} />
+      </span>
+    </span>
   );
 }
 
@@ -223,7 +254,7 @@ const ItemRow = memo(function ItemRow({
   const [justDone, setJustDone] = useState(false);
   const areaColor = tone(placeOf(item.area).tone);
   return (
-    <div className={`row flex gap-3 px-3.5 py-3 sm:px-4 ${isDone ? "done" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
+    <div id={`item-${item.id}`} className={`row flex scroll-mt-40 gap-3 px-3.5 py-3 sm:px-4 ${isDone ? "done" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
       <button
         type="button"
         role="checkbox"
@@ -283,6 +314,7 @@ function GroupBlock({
   query,
   readOnly,
   defaultOpen = false,
+  openSignal = 0,
   onToggle,
   onComplete,
 }: {
@@ -293,10 +325,15 @@ function GroupBlock({
   query: string;
   readOnly: boolean;
   defaultOpen?: boolean;
+  /** Changes when something outside (map, search) asks this group to open. */
+  openSignal?: number;
   onToggle: (id: string, next: boolean) => void;
   onComplete: (group: ViewGroup, el: HTMLElement | null) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (openSignal) setOpen(true);
+  }, [openSignal]);
   const isOpen = filtering || open;
   const doneCount = group.items.filter((i) => checked.has(i.id)).length;
   const total = group.items.length;
@@ -413,6 +450,22 @@ function GoogleMark() {
     </svg>
   );
 }
+function SpeakerIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" fillOpacity="0.25" />
+      {muted ? (
+        <path d="M16 9.5l5 5M21 9.5l-5 5" />
+      ) : (
+        <>
+          <path d="M15.5 9a4.2 4.2 0 0 1 0 6" />
+          <path d="M18 6.5a7.8 7.8 0 0 1 0 11" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 /** Two-tap destructive button: the first tap arms it for 4 seconds. */
 function ConfirmButton({ label, confirmLabel, onConfirm, disabled }: { label: string; confirmLabel: string; onConfirm: () => void; disabled?: boolean }) {
   const [armed, setArmed] = useState(false);
@@ -476,10 +529,19 @@ export function App() {
   const [toast, setToast] = useState<Toast | null>(null);
   // A friend's progress opened from a share link: read-only until closed.
   const [shared, setShared] = useState<Set<string> | null>(() => readShared());
-  const [fanfare, setFanfare] = useState<string | null>(null);
+  const [fanfare, setFanfare] = useState<{ title: string; icon: string; tone: Tone; n: number } | null>(null);
   const [finale, setFinale] = useState(false);
   const install = useInstallPrompt();
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [activeHit, setActiveHit] = useState(0);
+  // A request from the map or search to open a group (and maybe show one item).
+  const [jump, setJump] = useState<{ group: string; item?: string; n: number } | null>(null);
+  const [muted, setMuted] = useState(sound.muted);
+
+  // Music and the fanfare start on the first tap or key (autoplay rules).
+  useEffect(() => armSoundOnFirstGesture(), []);
+  useEffect(() => sound.subscribe(setMuted), []);
 
   const reconciledRef = useRef(false);
   const checkedRef = useRef(checked);
@@ -555,6 +617,7 @@ export function App() {
         searchRef.current?.select();
       } else if (e.key === "Escape" && target === searchRef.current) {
         setQuery("");
+        setSearchOpen(false);
         searchRef.current?.blur();
       }
     };
@@ -669,12 +732,13 @@ export function App() {
     const box = el?.getBoundingClientRect();
     celebrate({ x: box ? box.left + 40 : undefined, y: box ? box.top + 32 : undefined });
     buzz([14, 40, 22]);
-    setFanfare(group.title.replace(/: All \d+$/, ""));
+    sound.fanfare();
+    setFanfare({ title: group.title.replace(/: All \d+$/, ""), icon: group.icon, tone: group.tone, n: Date.now() });
   }, []);
 
   useEffect(() => {
     if (!fanfare) return;
-    const t = setTimeout(() => setFanfare(null), 2600);
+    const t = setTimeout(() => setFanfare(null), 3000);
     return () => clearTimeout(t);
   }, [fanfare]);
 
@@ -685,6 +749,7 @@ export function App() {
     if (complete && !wasComplete.current && Date.now() - lastTapRef.current < 1500) {
       setFinale(true);
       celebrate({ big: true });
+      sound.fanfare();
       buzz([30, 60, 30, 60, 80]);
     }
     wasComplete.current = complete;
@@ -800,6 +865,7 @@ export function App() {
   const readOnly = shared !== null;
 
   const groups = useMemo<ViewGroup[]>(() => {
+    if (view === "map") return mapGroups();
     if (view === "places") return locationGroups();
     if (view === "eras") return eraGroups();
     return journeyGroups();
@@ -813,6 +879,53 @@ export function App() {
     [groups, deferredQuery, status, age, viewChecked],
   );
   const visibleCount = visibleGroups.reduce((n, g) => n + g.items.length, 0);
+
+  const hits = useMemo(() => searchItems(deferredQuery), [deferredQuery]);
+  const showHits = searchOpen && hits.length > 0;
+
+  const regionProgress = useMemo(() => {
+    const m = new Map<string, RegionProgress>();
+    for (const r of MAP_REGIONS) {
+      const items = ALL_ITEMS.filter((i) => i.area && r.areas.includes(i.area));
+      m.set(r.id, { done: items.filter((i) => viewChecked.has(i.id)).length, total: items.length });
+    }
+    return m;
+  }, [viewChecked]);
+
+  /** Open the item's group in the current view and bring the item into view. */
+  const jumpToItem = (id: string) => {
+    const group = groups.find((g) => g.items.some((i) => i.id === id));
+    setQuery("");
+    setStatus("all");
+    setAge("all");
+    setSearchOpen(false);
+    searchRef.current?.blur();
+    if (group) setJump({ group: group.key, item: id, n: Date.now() });
+  };
+  const jumpToRegion = useCallback((regionId: string) => {
+    setJump({ group: `map-${regionId}`, n: Date.now() });
+  }, []);
+
+  useEffect(() => {
+    if (!jump) return;
+    // Wait for the group to finish opening (grid-template-rows, 0.35s).
+    const t = setTimeout(
+      () => {
+        const el = document.getElementById(jump.item ? `item-${jump.item}` : `grp-${jump.group}`);
+        if (!el) return;
+        el.scrollIntoView({ block: jump.item ? "center" : "start", behavior: reducedMotion() ? "auto" : "smooth" });
+        if (jump.item) {
+          el.classList.remove("jump-flash");
+          void el.offsetWidth;
+          el.classList.add("jump-flash");
+          el.addEventListener("animationend", () => el.classList.remove("jump-flash"), { once: true });
+          el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+        }
+      },
+      reducedMotion() ? 20 : 380,
+    );
+    return () => clearTimeout(t);
+  }, [jump]);
 
   const doneTotal = viewChecked.size;
   const pct = Math.floor((doneTotal / TOTAL_ITEMS) * 100);
@@ -920,6 +1033,20 @@ export function App() {
           aria-hidden="true"
           style={{ background: "linear-gradient(180deg, rgba(8,12,10,0.25) 0%, rgba(8,12,10,0.5) 45%, rgba(8,12,10,0.9) 100%)" }}
         />
+        <button
+          type="button"
+          onClick={() => {
+            sound.unlock();
+            sound.setMuted(!muted);
+          }}
+          aria-pressed={!muted}
+          aria-label={muted ? "Play music" : "Mute music"}
+          title={muted ? "Play music" : "Mute music"}
+          className="sound-toggle absolute z-10 flex h-10 w-10 items-center justify-center rounded-full"
+          style={{ top: "max(0.75rem, env(safe-area-inset-top))", right: "max(0.75rem, env(safe-area-inset-right))" }}
+        >
+          <SpeakerIcon muted={muted} />
+        </button>
         <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-4 px-4 pb-5" style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}>
           <div className="flex flex-col items-center">
             <picture>
@@ -1031,6 +1158,7 @@ export function App() {
                 ["journey", "Journey"],
                 ["places", "Places"],
                 ["eras", "Eras"],
+                ["map", "Map"],
               ] as [ViewMode, string][]
             ).map(([mode, label]) => (
               <button
@@ -1063,9 +1191,32 @@ export function App() {
                 ref={searchRef}
                 id="checklist-search"
                 type="search"
+                role="combobox"
+                aria-expanded={showHits}
+                aria-controls="search-hits"
+                aria-autocomplete="list"
+                aria-activedescendant={showHits ? `hit-${hits[Math.min(activeHit, hits.length - 1)]?.id}` : undefined}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setSearchOpen(true);
+                  setActiveHit(0);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => setSearchOpen(false)}
+                onKeyDown={(e) => {
+                  if (!showHits) return;
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const step = e.key === "ArrowDown" ? 1 : -1;
+                    setActiveHit((i) => (i + step + hits.length) % hits.length);
+                  } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    const hit = hits[Math.min(activeHit, hits.length - 1)];
+                    if (hit) jumpToItem(hit.id);
+                  }
+                }}
+                placeholder="Search every item"
                 autoComplete="off"
                 enterKeyHint="search"
                 className="w-full rounded-full py-2 pr-10 pl-9 text-[16px] outline-none focus:ring-2"
@@ -1078,6 +1229,35 @@ export function App() {
                 >
                   /
                 </kbd>
+              )}
+              {showHits && (
+                <ul id="search-hits" role="listbox" aria-label="Results" className="search-results absolute inset-x-0 top-full z-30 mt-1.5 max-h-[60vh] overflow-y-auto rounded-2xl py-1">
+                  {hits.map((item, i) => (
+                    <li
+                      key={item.id}
+                      id={`hit-${item.id}`}
+                      role="option"
+                      aria-selected={i === Math.min(activeHit, hits.length - 1)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveHit(i)}
+                      onClick={() => jumpToItem(item.id)}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2"
+                      style={{ minHeight: 48 }}
+                    >
+                      <Sprite name={ITEM_ICON.get(item.id) ?? "triforce"} size={28} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14.5px] font-semibold" style={{ color: "var(--text)" }}>
+                          <Highlight text={item.name} q={deferredQuery} />
+                        </span>
+                        <span className="block truncate text-[12.5px]" style={{ color: "var(--dim)" }}>
+                          {SECTION_TITLE.get(item.id)}
+                          {item.area ? ` · ${item.area}` : ""}
+                        </span>
+                      </span>
+                      {viewChecked.has(item.id) && <span className="text-[12px] font-semibold" style={{ color: "var(--accent)" }}>Done</span>}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
             <button
@@ -1148,6 +1328,7 @@ export function App() {
 
       {/* ---------- Sections ---------- */}
       <main id="checklist" className="mx-auto flex max-w-3xl flex-col gap-3.5 px-4 py-4 pb-10">
+        {view === "map" && !filtering && <HyruleMap progress={regionProgress} onPick={jumpToRegion} />}
         {visibleGroups.length === 0 ? (
           <div className="py-10 text-center" style={{ color: "var(--dim)" }}>
             <p>Nothing matches.</p>
@@ -1172,6 +1353,7 @@ export function App() {
                     ? group.key === "era-child"
                     : false
               }
+              openSignal={jump?.group === group.key ? jump.n : 0}
               onToggle={onToggle}
               onComplete={onGroupComplete}
             />
@@ -1271,6 +1453,7 @@ export function App() {
         <footer className="px-2 pt-2 pb-4 text-center text-[12.5px] leading-relaxed" style={{ color: "var(--dim)" }}>
           <p>A fan-made checklist for the Nintendo Switch 2 remake. Not affiliated with Nintendo.</p>
           <p className="mt-1">Official art © Nintendo, from Zelda Wiki's remake galleries.</p>
+          <p className="mt-1">Music and fanfare are original renditions, not the game's recordings.</p>
           <p className="mt-1.5">
             <a href="https://github.com/helv-io/oot2-tracker/blob/main/DATA-SOURCES.md" target="_blank" rel="noreferrer" className="underline">
               Sources
@@ -1283,16 +1466,31 @@ export function App() {
         </footer>
       </main>
 
-      {/* ---------- Group complete fanfare ---------- */}
+      {/* ---------- Group complete: item get ---------- */}
       {fanfare && (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex justify-center px-4" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }} aria-live="polite">
-          <div
-            key={fanfare}
-            className="rise-in flex items-center gap-2.5 rounded-full px-4 py-2"
-            style={{ background: "linear-gradient(180deg, #24382b, #142119)", border: "1px solid var(--gold)", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}
-          >
-            <Sprite name="triforce" size={22} className="glow" />
-            <span className="font-display text-[15px] text-[#f6eedb]">{fanfare} complete</span>
+        <div className="pointer-events-none fixed inset-x-0 top-[18vh] z-50 flex justify-center px-4" aria-live="polite">
+          <div key={fanfare.n} className="item-get relative flex flex-col items-center px-8 py-5 text-center">
+            <svg className="item-get-rays absolute top-[-30px] left-1/2 -ml-[90px]" width="180" height="180" viewBox="-90 -90 180 180" aria-hidden="true">
+              <defs>
+                <radialGradient id="ig-halo">
+                  <stop offset="0" stopColor="#fff4d2" stopOpacity="0.95" />
+                  <stop offset="0.35" stopColor={tone(fanfare.tone)} stopOpacity="0.45" />
+                  <stop offset="1" stopColor={tone(fanfare.tone)} stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle r="62" fill="rgba(10,15,12,0.55)" />
+              <circle r="88" fill="url(#ig-halo)" />
+              {Array.from({ length: 12 }, (_, i) => (
+                <path key={i} d="M0,0 L-5,-86 L5,-86 Z" fill="#f4e6bd" opacity="0.32" transform={`rotate(${i * 30})`} />
+              ))}
+            </svg>
+            <Sprite name={fanfare.icon} size={64} className="glow relative" />
+            <div
+              className="relative mt-3 rounded-full px-4 py-2"
+              style={{ background: "linear-gradient(180deg, #24382b, #142119)", border: "1px solid var(--gold)", boxShadow: "0 10px 30px rgba(0,0,0,0.35)" }}
+            >
+              <span className="font-display text-[16px] text-[#f6eedb]">{fanfare.title} complete</span>
+            </div>
           </div>
         </div>
       )}

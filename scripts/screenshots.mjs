@@ -58,6 +58,12 @@ for (const theme of ["dark", "light"]) {
       await page.evaluate(() => window.scrollBy(0, -140));
       await page.waitForTimeout(300);
       await shot(page, "mobile-places");
+      await page.getByRole("button", { name: "Map", exact: true }).click();
+      await page.waitForTimeout(400);
+      await page.locator(".hyrule-map").scrollIntoViewIfNeeded();
+      await page.evaluate(() => window.scrollBy(0, -150));
+      await page.waitForTimeout(300);
+      await shot(page, "mobile-map");
     }
     await ctx.close();
   }
