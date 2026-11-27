@@ -212,3 +212,32 @@ test("sound mute is remembered per device", async () => {
   assert.equal(readMuted(store(null)), false);
   assert.ok(MUSIC_VOLUME >= 0.08 && MUSIC_VOLUME <= 0.12, "faint background music");
 });
+
+test("key-item gating: every need can be earned, rules point at real items, hints read well", async () => {
+  const { GRANTS, NEEDS, IMPLIES, ownedKeys, missingNeeds, needsHint } = await import("../client/src/data/gating.ts");
+  const { SECTIONS } = await import("../client/src/data/catalog.ts");
+  const items = SECTIONS.flatMap((s) => s.items);
+  const byId = new Map(items.map((i) => [i.id, i]));
+  for (const id of Object.keys(GRANTS)) assert.ok(byId.has(id), `${id} grants but is not an item`);
+  for (const id of NEEDS.keys()) assert.ok(byId.has(id));
+  // Every needed key item is granted by something (or implied by it).
+  const obtainable = new Set<string>([...Object.values(GRANTS).flat(), ...Object.values(IMPLIES).flat()]);
+  for (const [id, needs] of NEEDS) {
+    for (const n of needs) assert.ok(n.split(" or ").every((k) => obtainable.has(k)), `${id} needs ${n}, which nothing grants`);
+  }
+  // Nothing needs itself, and a fresh save is not locked out of the whole game.
+  for (const [id, needs] of NEEDS) for (const n of needs) assert.ok(!(GRANTS[id] ?? []).includes(n), `${id} needs what it grants`);
+  const none = ownedKeys(new Set());
+  const unlocked = items.filter((i) => missingNeeds(i, none).length === 0).length;
+  assert.ok(unlocked > items.length / 2, `only ${unlocked} of ${items.length} items are open on a blank save`);
+  // Checking the Hookshot item unlocks Hookshot gates; the Longshot implies it.
+  const hook = items.find((i) => NEEDS.get(i.id)!.includes("Hookshot") && NEEDS.get(i.id)!.length === 1)!;
+  assert.deepEqual(missingNeeds(hook, none), ["Hookshot"]);
+  assert.deepEqual(missingNeeds(hook, ownedKeys(new Set(["story-9"]))), []);
+  assert.deepEqual(missingNeeds(hook, ownedKeys(new Set(["story-13"]))), []);
+  assert.equal(needsHint([]), "");
+  assert.equal(needsHint(["Hookshot"]), "Needs Hookshot");
+  assert.equal(needsHint(["Hookshot", "Iron Boots"]), "Needs Hookshot and Iron Boots");
+  assert.equal(needsHint(["A", "B", "C", "D"]), "Needs A, B and 2 more");
+  assert.doesNotMatch(JSON.stringify([...NEEDS.values()]), /[\u2013\u2014]/);
+});

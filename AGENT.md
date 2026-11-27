@@ -68,6 +68,16 @@ Notes for agents working on oot2-tracker.
   exactly one region (a test checks it). Tint follows completion and turns
   gold at 100%; hover and focus change stroke only. Keep labels legible at
   375px (about 10px rendered).
+- Smart filters live in the Filters disclosure and persist in prefs
+  (`age`, `hideDone`, `showLocks`). Era hides items the other form can't
+  do (Both-era items always show). Hide finished keeps rows you tick in
+  this session until the filter changes. Key-item gating is data in
+  `data/gating.ts`: GRANTS (items that give a key item), IMPLIES
+  (Longshot gives Hookshot), AREA_RULES and ITEM_RULES (what an item
+  needs). Owned key items come only from checked progress. Locked rows
+  are greyed with a "Needs X" hint, never hidden, and still tick. Keep
+  rules plain and conservative; a test checks every need can be earned.
+  Only a search or the status chips force groups open, not these filters.
 - Search (`/`) lists results across every item and jumps to one by
   opening its group and scrolling to the row. Map taps do the same for a
   region's group. Both go through `jump` state and `openSignal`.

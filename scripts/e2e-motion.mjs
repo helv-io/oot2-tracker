@@ -213,6 +213,35 @@ try {
       const fill = await page.locator(".tf-top").first().evaluate((el) => getComputedStyle(el).clipPath);
       if (!/inset/.test(fill)) failures.push(`${tag} triforce fill: ${fill}`);
 
+      // Smart filters: locked rows are greyed with a hint but still tick; era and
+      // "Hide finished" are remembered across a reload.
+      await page.evaluate(() => {
+        localStorage.setItem("oot-100-checklist:device-checks:v1", JSON.stringify(["story-1"]));
+        localStorage.setItem("oot-100-checklist:prefs:v1", JSON.stringify({ view: "journey", theme: "dark", filtersOpen: true }));
+      });
+      await page.reload({ waitUntil: "networkidle" });
+      await page.locator("#grp-story button[aria-expanded]").first().evaluate((b) => b.getAttribute("aria-expanded") === "true" || b.click());
+      await page.waitForTimeout(450);
+      const hint = await page.locator("#item-story-7 .need").first().textContent();
+      if (!/Needs Slingshot/.test(hint ?? "")) failures.push(`${tag} gating: story-7 hint was ${JSON.stringify(hint)}`);
+      const lockedClass = await page.locator("#item-story-7").getAttribute("class");
+      if (!/locked/.test(lockedClass ?? "")) failures.push(`${tag} gating: story-7 not marked locked`);
+      await page.locator("#item-story-7 button[role=checkbox]").click();
+      if ((await page.locator("#item-story-7 button[role=checkbox]").getAttribute("aria-checked")) !== "true") failures.push(`${tag} gating: a locked row would not tick`);
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-locked.png` });
+      await page.getByRole("button", { name: "Adult", exact: true }).click();
+      await page.getByRole("button", { name: "Hide finished" }).click();
+      await page.waitForTimeout(200);
+      await page.reload({ waitUntil: "networkidle" });
+      const pressed = async (name) => (await page.getByRole("button", { name, exact: true }).getAttribute("aria-pressed")) === "true";
+      if (!(await pressed("Adult"))) failures.push(`${tag} filters: Adult era not remembered`);
+      if (!(await pressed("Hide finished"))) failures.push(`${tag} filters: Hide finished not remembered`);
+      await page.locator("#grp-story button[aria-expanded]").first().evaluate((b) => b.getAttribute("aria-expanded") === "true" || b.click());
+      await page.waitForTimeout(450);
+      if (await page.locator("#item-story-1").count()) failures.push(`${tag} filters: finished or Child-only row still listed`);
+      if (!(await page.locator("#item-story-9").count())) failures.push(`${tag} filters: Adult row missing`);
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-filters.png` });
+
       if (errors.length) failures.push(`${engineName}/${vpName} pageerror: ${errors.join("; ")}`);
       await ctx.close();
     }

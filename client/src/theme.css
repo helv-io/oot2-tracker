@@ -202,6 +202,10 @@ mark.hit {
 .check .tick path { stroke-dasharray: 24; animation: check-draw 0.3s ease-out 0.05s both; }
 
 .row { transition: background-color 0.25s; }
+/* A locked row is greyed, never hidden, and still ticks off. */
+.row.locked .title, .row.locked .copy { opacity: 0.62; }
+.row.locked .check .sprite { filter: grayscale(1) contrast(0.9); opacity: 0.5; }
+.need { color: var(--accent); }
 .row.done .title { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--gold) 70%, transparent); text-decoration-thickness: 1.5px; }
 .row.done .copy { opacity: 0.62; }
 

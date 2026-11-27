@@ -14,6 +14,7 @@ import { ApiError, api } from "./api";
 import { ALL_ITEMS, SECTIONS, TOTAL_ITEMS, type CatalogItem } from "./data/catalog";
 import { ITEM_ICON, eraGroups, journeyGroups, locationGroups, mapGroups, type ViewGroup } from "./data/views";
 import { MAP_REGIONS } from "./data/map";
+import { missingNeeds, needsHint, ownedKeys } from "./data/gating";
 import { TONE_COLOR, placeOf, type Tone } from "./data/look";
 import { ART } from "./data/art.generated";
 import { Sprite } from "./components/Art";
@@ -81,16 +82,23 @@ interface Prefs {
   view: ViewMode;
   filtersOpen: boolean;
   theme: ThemeMode;
+  /** Smart filters, remembered on this device. */
+  age: AgeFilter;
+  hideDone: boolean;
+  showLocks: boolean;
 }
 
 function readPrefs(): Prefs {
-  const fallback: Prefs = { view: "journey", filtersOpen: false, theme: "system" };
+  const fallback: Prefs = { view: "journey", filtersOpen: false, theme: "system", age: "all", hideDone: false, showLocks: true };
   try {
     const parsed = JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}") as Partial<Prefs>;
     return {
       view: parsed.view === "places" || parsed.view === "eras" || parsed.view === "map" ? parsed.view : "journey",
       filtersOpen: parsed.filtersOpen === true,
       theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
+      age: parsed.age === "Child" || parsed.age === "Adult" ? parsed.age : "all",
+      hideDone: parsed.hideDone === true,
+      showLocks: parsed.showLocks !== false,
     };
   } catch {
     return fallback;
@@ -103,8 +111,9 @@ function readShared(): Set<string> | null {
   return m ? decodeProgress(m[1], ALL_IDS) : null;
 }
 
-function itemMatches(item: CatalogItem, q: string, status: StatusFilter, age: AgeFilter, checked: ReadonlySet<string>) {
+function itemMatches(item: CatalogItem, q: string, status: StatusFilter, age: AgeFilter, hideDone: boolean, checked: ReadonlySet<string>) {
   const isDone = checked.has(item.id);
+  if (hideDone && isDone) return false;
   if (status === "todo" && isDone) return false;
   if (status === "done" && !isDone) return false;
   if (age !== "all" && item.age && item.age !== "Both" && item.age !== age) return false;
@@ -241,6 +250,7 @@ const ItemRow = memo(function ItemRow({
   isDone,
   query,
   readOnly,
+  needs,
   onToggle,
 }: {
   item: CatalogItem;
@@ -248,18 +258,21 @@ const ItemRow = memo(function ItemRow({
   isDone: boolean;
   query: string;
   readOnly: boolean;
+  /** "Needs Hookshot" when a key item is missing; empty otherwise. */
+  needs: string;
   onToggle: (id: string, next: boolean) => void;
 }) {
   const labelId = `lbl-${item.id}`;
   const [justDone, setJustDone] = useState(false);
   const areaColor = tone(placeOf(item.area).tone);
   return (
-    <div id={`item-${item.id}`} className={`row flex scroll-mt-40 gap-3 px-3.5 py-3 sm:px-4 ${isDone ? "done" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
+    <div id={`item-${item.id}`} className={`row flex scroll-mt-40 gap-3 px-3.5 py-3 sm:px-4 ${isDone ? "done" : ""}${needs && !isDone ? " locked" : ""}`} style={{ borderTop: "1px solid var(--border)" }}>
       <button
         type="button"
         role="checkbox"
         aria-checked={isDone}
         aria-labelledby={labelId}
+        aria-describedby={needs && !isDone ? `need-${item.id}` : undefined}
         aria-disabled={readOnly || undefined}
         onClick={() => {
           if (readOnly) return;
@@ -296,6 +309,14 @@ const ItemRow = memo(function ItemRow({
         <p className="copy mt-0.5 text-[13.5px] leading-[1.45]" style={{ color: "var(--dim)" }}>
           <Highlight text={item.detail} q={query} />
         </p>
+        {needs && !isDone && (
+          <p id={`need-${item.id}`} className="need mt-1 inline-flex items-center gap-1 text-[12.5px] font-semibold">
+            <svg width="11" height="11" viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M6 9V6.5a4 4 0 0 1 8 0V9M4.5 9h11v8h-11z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
+            {needs}
+          </p>
+        )}
         <div className="copy mt-1.5 flex flex-wrap gap-1.5">
           {item.area && <Tag color={areaColor}>{item.area}</Tag>}
           {item.age && <Tag>{item.age === "Both" ? "Child & Adult" : `${item.age} Link`}</Tag>}
@@ -313,6 +334,7 @@ function GroupBlock({
   filtering,
   query,
   readOnly,
+  owned,
   defaultOpen = false,
   openSignal = 0,
   onToggle,
@@ -324,6 +346,8 @@ function GroupBlock({
   filtering: boolean;
   query: string;
   readOnly: boolean;
+  /** Key items owned, or null when locked items shouldn't be marked. */
+  owned: ReadonlySet<string> | null;
   defaultOpen?: boolean;
   /** Changes when something outside (map, search) asks this group to open. */
   openSignal?: number;
@@ -421,6 +445,7 @@ function GroupBlock({
                   isDone={checked.has(item.id)}
                   query={query}
                   readOnly={readOnly}
+                  needs={owned ? needsHint(missingNeeds(item, owned)) : ""}
                   onToggle={onToggle}
                 />
               ))}
@@ -519,7 +544,8 @@ export function App() {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [age, setAge] = useState<AgeFilter>("all");
+  const age = prefs.age;
+  const setAge = useCallback((a: AgeFilter) => setPrefs((p) => ({ ...p, age: a })), []);
   const [moreOpen, setMoreOpen] = useState(false);
   const [accountState, setAccountState] = useState<AccountState>("connecting");
   const [queueStatus, setQueueStatus] = useState<QueueStatus>("idle");
@@ -706,9 +732,13 @@ export function App() {
 
   // Celebrations only follow the user's own taps, not a sync pull.
   const lastTapRef = useRef(0);
+  // Items ticked while "Hide finished" is on stay put until the filter
+  // changes, so a tap never makes a row vanish from under your finger.
+  const [lingering, setLingering] = useState<ReadonlySet<string>>(new Set());
   const onToggle = useCallback(
     (id: string, next: boolean) => {
       lastTapRef.current = Date.now();
+      if (next) setLingering((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
       setChecked((prev) => {
         const copy = new Set(prev);
         if (next) copy.add(id);
@@ -857,8 +887,10 @@ export function App() {
     }
   };
 
-  const filterCount = (status !== "all" ? 1 : 0) + (age !== "all" ? 1 : 0);
-  const filtering = deferredQuery !== "" || filterCount > 0;
+  const filterCount = (status !== "all" ? 1 : 0) + (age !== "all" ? 1 : 0) + (prefs.hideDone ? 1 : 0);
+  // Only a search or the status chips force every group open and hide the
+  // jump nav; the remembered smart filters (era, hide finished) don't.
+  const filtering = deferredQuery !== "" || status !== "all";
 
   // While viewing a friend's link, everything reads from their snapshot.
   const viewChecked: ReadonlySet<string> = shared ?? checked;
@@ -874,14 +906,16 @@ export function App() {
   const visibleGroups = useMemo(
     () =>
       groups
-        .map((group) => ({ group, items: group.items.filter((i) => itemMatches(i, deferredQuery, status, age, viewChecked)) }))
+        .map((group) => ({ group, items: group.items.filter((i) => itemMatches(i, deferredQuery, status, age, prefs.hideDone && !lingering.has(i.id), viewChecked)) }))
         .filter((v) => v.items.length > 0),
-    [groups, deferredQuery, status, age, viewChecked],
+    [groups, deferredQuery, status, age, prefs.hideDone, lingering, viewChecked],
   );
   const visibleCount = visibleGroups.reduce((n, g) => n + g.items.length, 0);
 
   const hits = useMemo(() => searchItems(deferredQuery), [deferredQuery]);
   const showHits = searchOpen && hits.length > 0;
+
+  const owned = useMemo(() => (prefs.showLocks ? ownedKeys(viewChecked) : null), [prefs.showLocks, viewChecked]);
 
   const regionProgress = useMemo(() => {
     const m = new Map<string, RegionProgress>();
@@ -898,6 +932,7 @@ export function App() {
     setQuery("");
     setStatus("all");
     setAge("all");
+    if (viewChecked.has(id)) setPrefs((p) => ({ ...p, hideDone: false }));
     setSearchOpen(false);
     searchRef.current?.blur();
     if (group) setJump({ group: group.key, item: id, n: Date.now() });
@@ -945,10 +980,15 @@ export function App() {
     minHeight: 36,
   });
 
+  const setHideDone = (hideDone: boolean) => {
+    setLingering(new Set());
+    setPrefs((p) => ({ ...p, hideDone }));
+  };
   const clearFilters = () => {
     setQuery("");
     setStatus("all");
     setAge("all");
+    setHideDone(false);
   };
 
   // ---- Modal focus handling ---------------------------------------------
@@ -1290,13 +1330,22 @@ export function App() {
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Era">
                 {(["all", "Child", "Adult"] as AgeFilter[]).map((f) => (
                   <button key={f} type="button" aria-pressed={age === f} onClick={() => setAge(f)} className="rounded-full px-3 text-[13px] font-medium" style={chipStyle(age === f)}>
-                    {f === "all" ? "Any era" : f}
+                    {f === "all" ? "Both" : f}
                   </button>
                 ))}
               </div>
+              <span className="mx-1 hidden h-5 w-px sm:block" style={{ background: "var(--border)" }} aria-hidden="true" />
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Display">
+                <button type="button" aria-pressed={prefs.hideDone} onClick={() => setHideDone(!prefs.hideDone)} className="rounded-full px-3 text-[13px] font-medium" style={chipStyle(prefs.hideDone)}>
+                  Hide finished
+                </button>
+                <button type="button" aria-pressed={prefs.showLocks} onClick={() => setPrefs((p) => ({ ...p, showLocks: !p.showLocks }))} className="rounded-full px-3 text-[13px] font-medium" style={chipStyle(prefs.showLocks)}>
+                  Show what's locked
+                </button>
+              </div>
             </div>
           )}
-          {filtering && (
+          {(filtering || filterCount > 0) && (
             <p className="flex items-center gap-2 text-[13px]" style={{ color: "var(--dim)" }} aria-live="polite">
               {visibleCount} {visibleCount === 1 ? "match" : "matches"}
               <button type="button" onClick={clearFilters} className="font-semibold underline" style={{ color: "var(--accent)", minHeight: 28 }}>
@@ -1346,6 +1395,7 @@ export function App() {
               filtering={filtering}
               query={deferredQuery}
               readOnly={readOnly}
+              owned={owned}
               defaultOpen={
                 view === "journey"
                   ? group.key === "story" || group.key === "skulltulas" || group.key === "hearts"

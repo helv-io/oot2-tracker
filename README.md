@@ -53,7 +53,8 @@ trade items), the list says so, with sources in
 - 🔵 **Four views, one list.** Walk it by **Journey**, by **Places**, by **Eras** (Child and Adult Link), or on the **Map**. Every group has its own progress ring.
 - 🗺️ **Nintendo's map of Hyrule.** The remake's own map, with each region tinting in its colour as you finish it and turning gold at 100%. Tap a region to jump to its list.
 - 🟣 **Satisfying ticks.** A pop and a haptic tap. Finish a section and you get an item-get moment with a fanfare. The Triforce fills as your total climbs.
-- 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status or era.
+- 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status.
+- 🧭 **Smart filters.** In **Filters**, pick Child, Adult or Both to hide what that form can't do, hide finished items, and see what's locked: an item that needs a key item you haven't got (Hookshot, Iron Boots, a song...) is greyed with a small "Needs Hookshot" hint, never hidden. Your choices are remembered, and what you own comes from what you've ticked.
 - 🎵 **Zelda's Lullaby,** very faintly, after your first tap. The speaker button, top right, mutes music and fanfare and remembers it.
 - 🟡 **Share your progress** as a read-only link, or print it as a PDF.
 - ⚪ **Light, dark or auto**, installable as an app, and works offline.
