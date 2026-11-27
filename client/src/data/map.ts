@@ -1,24 +1,28 @@
-// The Map view: a small, custom-drawn Hyrule (not game art) split into
-// regions. Each region gathers the catalog's areas that lie inside it,
-// wears that region's tone from look.ts, and is drawn as a soft island
-// on a 640x420 board. Coarse outline points are smoothed into curves.
+// The Map view: Nintendo's official stylized map of Hyrule for the Switch 2
+// remake (see client/assets/official/SOURCES.md), with a tappable hotspot
+// over each region. Each region gathers the catalog's areas that lie
+// inside it and wears that region's tone from look.ts.
+//
+// Coordinates are in the cropped map's own units (MAP_W x MAP_H, 3 source
+// pixels each). Shapes are loose polygons, smoothed into curves.
 
 import type { Tone } from "./look";
 
 export interface MapRegion {
   id: string;
   name: string;
-  /** Short label drawn on the map. */
+  /** Short label, drawn on the map. */
   label: string;
   tone: Tone;
   icon: string;
   areas: string[];
-  outline: Array<[number, number]>;
+  /** One or more polygons that make up the hotspot. */
+  shapes: Array<Array<[number, number]>>;
   labelAt: [number, number];
 }
 
-export const MAP_W = 640;
-export const MAP_H = 420;
+export const MAP_W = 580;
+export const MAP_H = 433;
 
 export const MAP_REGIONS: MapRegion[] = [
   {
@@ -28,8 +32,10 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "spirit",
     icon: "spirit-medallion",
     areas: ["Haunted Wasteland", "Desert Colossus", "Spirit Temple"],
-    outline: [[22, 78], [104, 52], [142, 92], [134, 168], [142, 236], [104, 276], [40, 266], [14, 186]],
-    labelAt: [78, 166],
+    shapes: [
+      [[20, 93], [40, 65], [88, 55], [120, 69], [136, 99], [124, 133], [85, 141], [64, 157], [58, 190], [40, 197], [22, 170], [14, 125]],
+    ],
+    labelAt: [56, 115],
   },
   {
     id: "gerudo",
@@ -38,8 +44,10 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "spirit",
     icon: "gerudo-pass",
     areas: ["Gerudo Valley", "Gerudo's Fortress"],
-    outline: [[160, 104], [212, 128], [222, 178], [200, 232], [158, 236], [150, 170]],
-    labelAt: [186, 176],
+    shapes: [
+      [[72, 143], [125, 137], [150, 165], [156, 205], [132, 229], [96, 229], [76, 199], [66, 165]],
+    ],
+    labelAt: [110, 191],
   },
   {
     id: "ganon",
@@ -48,8 +56,10 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "ganon",
     icon: "boss-key",
     areas: ["Ganon's Castle"],
-    outline: [[266, 8], [330, 4], [344, 30], [304, 46], [262, 34]],
-    labelAt: [303, 28],
+    shapes: [
+      [[196, 27], [222, 17], [260, 27], [276, 45], [258, 59], [222, 55], [198, 53]],
+    ],
+    labelAt: [236, 43],
   },
   {
     id: "castle",
@@ -58,18 +68,22 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "light",
     icon: "zeldas-letter",
     areas: ["Hyrule Castle", "Hyrule Castle Grounds", "Hyrule Castle Town", "Hyrule Castle Town (ruins)", "Temple of Time"],
-    outline: [[244, 62], [318, 54], [366, 84], [372, 132], [300, 146], [238, 122]],
-    labelAt: [304, 102],
+    shapes: [
+      [[186, 65], [228, 59], [270, 65], [280, 115], [282, 161], [250, 171], [210, 165], [192, 135], [182, 95]],
+    ],
+    labelAt: [232, 115],
   },
   {
     id: "mountain",
     name: "Death Mountain",
-    label: "Death\nMountain",
+    label: "Mountain",
     tone: "fire",
     icon: "goron-ruby",
     areas: ["Death Mountain Trail", "Dodongo's Cavern", "Goron City", "Death Mountain Crater", "Fire Temple"],
-    outline: [[392, 30], [466, 10], [534, 42], [540, 92], [488, 112], [420, 106], [386, 72]],
-    labelAt: [462, 58],
+    shapes: [
+      [[295, 17], [340, 8], [390, 8], [430, 51], [462, 93], [430, 107], [380, 101], [332, 115], [298, 89], [288, 49]],
+    ],
+    labelAt: [378, 61],
   },
   {
     id: "kakariko",
@@ -78,8 +92,10 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "village",
     icon: "token",
     areas: ["Kakariko Village", "Kakariko Graveyard", "Bottom of the Well", "Shadow Temple"],
-    outline: [[396, 124], [478, 122], [498, 160], [462, 178], [402, 162]],
-    labelAt: [446, 150],
+    shapes: [
+      [[322, 137], [358, 129], [400, 133], [432, 149], [426, 177], [380, 183], [340, 181], [318, 165]],
+    ],
+    labelAt: [374, 159],
   },
   {
     id: "zora",
@@ -88,18 +104,23 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "water",
     icon: "zora-sapphire",
     areas: ["Zora's River", "Zora's Domain", "Zora's Fountain", "Inside Jabu-Jabu's Belly", "Ice Cavern"],
-    outline: [[556, 62], [614, 84], [624, 168], [592, 214], [544, 198], [520, 148], [532, 100]],
-    labelAt: [574, 140],
+    shapes: [
+      [[430, 181], [460, 161], [500, 145], [540, 165], [556, 205], [550, 237], [500, 247], [450, 235], [426, 211]],
+      [[318, 205], [365, 195], [428, 201], [430, 225], [380, 229], [322, 223]],
+    ],
+    labelAt: [502, 197],
   },
   {
     id: "field",
     name: "Hyrule Field",
-    label: "Hyrule\nField",
+    label: "Field",
     tone: "field",
     icon: "running-man",
     areas: ["Hyrule Field"],
-    outline: [[232, 160], [300, 172], [390, 184], [458, 198], [474, 256], [428, 302], [330, 314], [244, 296], [214, 240]],
-    labelAt: [418, 278],
+    shapes: [
+      [[160, 175], [260, 169], [310, 197], [320, 235], [306, 295], [260, 317], [200, 311], [150, 295], [144, 235]],
+    ],
+    labelAt: [244, 287],
   },
   {
     id: "ranch",
@@ -108,28 +129,34 @@ export const MAP_REGIONS: MapRegion[] = [
     tone: "ranch",
     icon: "lon-lon-milk",
     areas: ["Lon Lon Ranch"],
-    outline: [[292, 206], [336, 196], [372, 216], [372, 250], [334, 266], [294, 254], [280, 230]],
-    labelAt: [327, 236],
+    shapes: [
+      [[174, 201], [218, 191], [252, 205], [248, 241], [206, 257], [174, 241]],
+    ],
+    labelAt: [212, 227],
   },
   {
     id: "forest",
     name: "Kokiri Forest",
-    label: "Kokiri\nForest",
+    label: "Forest",
     tone: "forest",
     icon: "kokiri-emerald",
     areas: ["Kokiri Forest", "Inside the Deku Tree", "Lost Woods", "Sacred Forest Meadow", "Forest Temple"],
-    outline: [[500, 222], [562, 230], [620, 256], [624, 340], [572, 394], [498, 384], [470, 330], [484, 272]],
-    labelAt: [550, 312],
+    shapes: [
+      [[306, 251], [340, 237], [400, 229], [460, 237], [520, 251], [546, 277], [552, 341], [510, 353], [450, 347], [390, 353], [340, 337], [306, 301]],
+    ],
+    labelAt: [428, 299],
   },
   {
     id: "lake",
     name: "Lake Hylia",
-    label: "Lake Hylia",
+    label: "Lake",
     tone: "water",
     icon: "water-medallion",
     areas: ["Lake Hylia", "Water Temple"],
-    outline: [[254, 334], [340, 330], [394, 352], [388, 398], [302, 414], [238, 394]],
-    labelAt: [314, 374],
+    shapes: [
+      [[144, 327], [190, 317], [260, 321], [296, 345], [296, 391], [250, 407], [174, 397], [144, 367]],
+    ],
+    labelAt: [222, 361],
   },
 ];
 
@@ -137,32 +164,6 @@ export const MAP_REGIONS: MapRegion[] = [
 export const REGION_OF_AREA: ReadonlyMap<string, string> = new Map(
   MAP_REGIONS.flatMap((r) => r.areas.map((a) => [a, r.id] as const)),
 );
-
-/**
- * Adds a gently jittered midpoint on every edge so islands read as
- * coastlines, not ovals. Deterministic, so the map never shifts.
- */
-export function roughen(points: ReadonlyArray<[number, number]>, seed: number, amount = 7): Array<[number, number]> {
-  let h = seed * 2654435761;
-  const rand = () => {
-    h = (h ^ (h >>> 15)) * 2246822519;
-    h = (h ^ (h >>> 13)) * 3266489917;
-    h ^= h >>> 16;
-    return ((h >>> 0) % 1000) / 1000 - 0.5;
-  };
-  const out: Array<[number, number]> = [];
-  for (let i = 0; i < points.length; i++) {
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[(i + 1) % points.length];
-    out.push([x1, y1]);
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.hypot(dx, dy) || 1;
-    const j = rand() * amount * 2;
-    out.push([Math.round((x1 + x2) / 2 + (-dy / len) * j), Math.round((y1 + y2) / 2 + (dx / len) * j)]);
-  }
-  return out;
-}
 
 /** Closed Catmull-Rom curve through the points, as an SVG path. */
 export function smoothPath(points: ReadonlyArray<[number, number]>, tension = 0.5): string {

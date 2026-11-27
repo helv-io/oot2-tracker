@@ -182,14 +182,15 @@ test("the printable PDF is a valid document with a bezel on every page", async (
 });
 
 test("the map covers every place, once, and its regions jump to real groups", async () => {
-  const { MAP_REGIONS, REGION_OF_AREA, smoothPath } = await import("../client/src/data/map.ts");
+  const { MAP_REGIONS, MAP_W, MAP_H, REGION_OF_AREA, smoothPath } = await import("../client/src/data/map.ts");
   const { mapGroups } = await import("../client/src/data/views.ts");
   const { PLACES, TONE_COLOR } = await import("../client/src/data/look.ts");
   const seen = new Map<string, string>();
   for (const r of MAP_REGIONS) {
     assert.ok(TONE_COLOR[r.tone], `${r.id} tone`);
-    assert.ok(r.outline.length >= 5, `${r.id} outline`);
-    assert.match(smoothPath(r.outline), /^M[\d.,]+( C[\d.,\s]+)+Z$/);
+    assert.ok(r.shapes.length >= 1 && r.shapes.every((sh) => sh.length >= 5), `${r.id} shapes`);
+    assert.ok(r.shapes.flat().every(([x, y]) => x >= 0 && y >= 0 && x <= MAP_W && y <= MAP_H), `${r.id} inside map`);
+    for (const sh of r.shapes) assert.match(smoothPath(sh), /^M[\d.,]+( C[\d.,\s]+)+Z$/);
     for (const a of r.areas) {
       assert.ok(PLACES[a], `${a} is a known place`);
       assert.ok(!seen.has(a), `${a} in ${seen.get(a)} and ${r.id}`);

@@ -51,7 +51,7 @@ trade items), the list says so, with sources in
 - 🟢 **Official remake art.** Every item, place and section wears its in-game icon.
 - 🔴 **Region colours.** Forest green, Death Mountain red, Zora blue, Shadow violet, desert sand, royal gold. Muted, never loud.
 - 🔵 **Four views, one list.** Walk it by **Journey**, by **Places**, by **Eras** (Child and Adult Link), or on the **Map**. Every group has its own progress ring.
-- 🗺️ **A map of Hyrule.** Each region fills with its colour as you finish it. Tap a region to jump to its list.
+- 🗺️ **Nintendo's map of Hyrule.** The remake's own map, with each region tinting in its colour as you finish it and turning gold at 100%. Tap a region to jump to its list.
 - 🟣 **Satisfying ticks.** A pop and a haptic tap. Finish a section and you get an item-get moment with a fanfare. The Triforce fills as your total climbs.
 - 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status or era.
 - 🎵 **Zelda's Lullaby,** very faintly, after your first tap. The speaker button, top right, mutes music and fanfare and remembers it.

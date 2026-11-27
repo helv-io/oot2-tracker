@@ -2,7 +2,7 @@
 
 Every image in this folder, and the app icons and link preview in `client/`, is official
 Nintendo art for *The Legend of Zelda: Ocarina of Time* on Nintendo Switch 2: in-game icons,
-renders, the English logo and key art. © Nintendo. Files were downloaded once from Zelda Wiki's
+renders, the English logo, key art and the map of Hyrule. © Nintendo. Files were downloaded once from Zelda Wiki's
 galleries for the game, resized and converted to WebP/AVIF by `scripts/official-art.py`,
 and are served from this site; nothing is hotlinked. This is a non-commercial fan project and is
 not affiliated with Nintendo.
@@ -105,6 +105,7 @@ not affiliated with Nintendo.
 | OoTNS2 Lon Lon Milk Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Lon_Lon_Milk_Icon.png |
 | OoTNS2 Longshot Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Longshot_Icon.png |
 | OoTNS2 Magic Beans Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Magic_Beans_Icon.png |
+| OoTNS2 Map of Hyrule.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Map_of_Hyrule.png |
 | OoTNS2 Mask of Truth Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Mask_of_Truth_Icon.png |
 | OoTNS2 Master Sword Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Master_Sword_Icon.png |
 | OoTNS2 Megaton Hammer Icon.png | https://zeldawiki.wiki/wiki/File:OoTNS2_Megaton_Hammer_Icon.png |
@@ -162,8 +163,12 @@ Drawn here because the remake has no usable asset at the needed size, in the sam
 - `icons/triforce.webp`: the remake's only gold Triforce is a 58px Threads of Time icon, so
   this is a redraw in its burnished-gold style. The README banners and dividers use the same shape.
 - `client/icon-*.png`, `favicon.png`: the official Ocarina of Time icon on a plain night-green tile.
-- The Map view's Hyrule (`client/src/data/map.ts`): drawn here as soft regional islands. It is
-  not the game's map art, and no N64 or 3DS map is used.
+- `art/hyrule-map-1200.webp` is Nintendo's own "Stylized Map of Hyrule" for the remake, first shared by
+  Nintendo on its social media and Japanese game site (Nintendo Life, 22 Sep 2026; Zelda Universe,
+  14 Oct 2026). Zelda Wiki and Zelda Dungeon Wiki host the same 1980x1440 file; it is cropped here to
+  trim empty parchment. It is the only full-overworld map the remake has published.
+- The Map view's region hotspots and tints (`client/src/data/map.ts`): outlines traced over the
+  official map above. The map itself is Nintendo's art; no N64, 3DS or ROM map is used.
 
 ## Audio
 

@@ -60,10 +60,14 @@ Notes for agents working on oot2-tracker.
   canvas on hidden tabs; under `prefers-reduced-motion` draw a still
   frame or nothing.
 
-- Views: Journey, Places, Eras, Map. The Map is a custom-drawn SVG
-  (`data/map.ts`, `components/HyruleMap.tsx`), never game map art. Every
-  catalog area belongs to exactly one map region (a test checks it).
-  Region fill follows completion; hover and focus change stroke only.
+- Views: Journey, Places, Eras, Map. The Map is Nintendo's official remake
+  map (`art/hyrule-map-1200.webp`, fetched by `scripts/official-art.py`,
+  never an N64, 3DS or ROM map) under SVG hotspots (`data/map.ts`,
+  `components/HyruleMap.tsx`). Hotspots are polygons in the cropped map's
+  units; a test keeps them inside it. Every catalog area belongs to
+  exactly one region (a test checks it). Tint follows completion and turns
+  gold at 100%; hover and focus change stroke only. Keep labels legible at
+  375px (about 10px rendered).
 - Search (`/`) lists results across every item and jumps to one by
   opening its group and scrolling to the row. Map taps do the same for a
   region's group. Both go through `jump` state and `openSignal`.

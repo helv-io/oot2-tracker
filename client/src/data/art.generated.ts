@@ -149,6 +149,7 @@ import a_key_art_800_webp from "../../assets/official/art/key-art-800.webp";
 import a_logo_640_webp from "../../assets/official/art/logo-640.webp";
 import a_logo_640_avif from "../../assets/official/art/logo-640.avif";
 import a_heart_container_96_webp from "../../assets/official/art/heart-container-96.webp";
+import a_hyrule_map_1200_webp from "../../assets/official/art/hyrule-map-1200.webp";
 
 export const ICONS = {
   "adults-wallet": i_adults_wallet,
@@ -305,4 +306,5 @@ export const ART = {
   "logo-640-webp": a_logo_640_webp,
   "logo-640-avif": a_logo_640_avif,
   "heart-container-96-webp": a_heart_container_96_webp,
+  "hyrule-map-1200-webp": a_hyrule_map_1200_webp,
 } as const;

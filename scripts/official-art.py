@@ -183,7 +183,11 @@ ART = {
     "key-art": ("OoTNS2 Key Artwork 4.png", [(1600, "avif"), (1600, "webp"), (800, "avif"), (800, "webp")]),
     "logo": ("OoTNS2 English Logo.png", [(640, "webp"), (640, "avif")]),
     "heart-container": ("OoTNS2 Heart Container Render.png", [(96, "webp")]),
+    # Nintendo's stylized overworld map (1980x1440), trimmed of its empty parchment border.
+    "hyrule-map": ("OoTNS2 Map of Hyrule.png", [(1200, "webp")]),
 }
+# Crop boxes (left, top, right, bottom) applied before resizing.
+CROPS = {"hyrule-map": (120, 105, 1860, 1405)}
 
 
 def api(params):
@@ -329,6 +333,8 @@ def main():
     art_vars = []
     for slug, (name, outs) in ART.items():
         im = Image.open(os.path.join(RAW, name)).convert("RGBA")
+        if slug in CROPS:
+            im = im.crop(CROPS[slug])
         for width, fmt in outs:
             h = round(im.height * width / im.width)
             out = os.path.join(OUT, "art", f"{slug}-{width}.{fmt}")
@@ -363,7 +369,7 @@ def main():
         "",
         "Every image in this folder, and the app icons and link preview in `client/`, is official",
         "Nintendo art for *The Legend of Zelda: Ocarina of Time* on Nintendo Switch 2: in-game icons,",
-        "renders, the English logo and key art. © Nintendo. Files were downloaded once from Zelda Wiki's",
+        "renders, the English logo, key art and the map of Hyrule. © Nintendo. Files were downloaded once from Zelda Wiki's",
         "galleries for the game, resized and converted to WebP/AVIF by `scripts/official-art.py`,",
         "and are served from this site; nothing is hotlinked. This is a non-commercial fan project and is",
         "not affiliated with Nintendo.",
@@ -381,8 +387,12 @@ def main():
         "- `icons/triforce.webp`: the remake's only gold Triforce is a 58px Threads of Time icon, so",
         "  this is a redraw in its burnished-gold style. The README banners and dividers use the same shape.",
         "- `client/icon-*.png`, `favicon.png`: the official Ocarina of Time icon on a plain night-green tile.",
-        "- The Map view's Hyrule (`client/src/data/map.ts`): drawn here as soft regional islands. It is",
-        "  not the game's map art, and no N64 or 3DS map is used.",
+        "- `art/hyrule-map-1200.webp` is Nintendo's own \"Stylized Map of Hyrule\" for the remake, first shared by",
+        "  Nintendo on its social media and Japanese game site (Nintendo Life, 22 Sep 2026; Zelda Universe,",
+        "  14 Oct 2026). Zelda Wiki and Zelda Dungeon Wiki host the same 1980x1440 file; it is cropped here to",
+        "  trim empty parchment. It is the only full-overworld map the remake has published.",
+        "- The Map view's region hotspots and tints (`client/src/data/map.ts`): outlines traced over the",
+        "  official map above. The map itself is Nintendo's art; no N64, 3DS or ROM map is used.",
         "",
         "## Audio",
         "",

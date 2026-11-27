@@ -243,35 +243,31 @@ mark.hit {
 }
 
 /* ---- Map view -------------------------------------------------------
-   Custom-drawn Hyrule; region tones from look.ts. Hover and focus only
-   change stroke and fill, never transform or filter, so Safari stays
-   clean while scrolling. */
-.hyrule-map { margin: 0; }
+   Nintendo's official Hyrule map under region hotspots. Hover and focus
+   only change stroke and fill, never transform or filter, so Safari
+   stays clean while scrolling. */
+.hyrule-map { margin: 0; border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--border)); box-shadow: var(--shadow); }
 .hyrule-map svg { display: block; width: 100%; height: auto; }
-.map-board { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
-.map-rule { fill: none; stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: 1; }
-.map-hatch-line { stroke: color-mix(in srgb, var(--dim) 30%, transparent); stroke-width: 1; }
-.map-river { fill: none; stroke: color-mix(in srgb, #4f80a6 55%, var(--surface)); stroke-width: 5; stroke-linecap: round; opacity: 0.7; }
+.map-shade { fill: #1a1208; opacity: 0.06; pointer-events: none; }
+:root[data-theme="dark"] .map-shade { opacity: 0.2; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .map-shade { opacity: 0.2; }
+}
 .map-region { cursor: pointer; outline: none; }
 .map-glow { fill: var(--region); }
-.map-land { fill: var(--surface-alt); }
 .map-fill { fill: var(--region); transition: fill-opacity 0.6s ease; }
-.map-unexplored { opacity: 0.6; }
-.map-edge { fill: none; stroke: color-mix(in srgb, var(--region) 75%, var(--text)); stroke-width: 1.6; transition: stroke-width 0.15s; }
-.map-region.is-complete .map-edge { stroke: var(--gold); stroke-width: 2.6; }
+.map-edge { fill: none; stroke: color-mix(in srgb, var(--region) 80%, #2a1a08); stroke-width: 2; stroke-dasharray: 5 4; opacity: 0.8; transition: stroke-width 0.15s; }
+.map-region.is-complete .map-fill,
+.map-region.is-complete .map-glow { fill: var(--gold-bright); }
+.map-region.is-complete .map-edge { stroke: var(--gold-bright); stroke-width: 3.2; stroke-dasharray: none; opacity: 1; }
 .map-region:hover .map-edge,
-.map-region:focus-visible .map-edge { stroke: var(--gold-bright); stroke-width: 3.2; }
+.map-region:focus-visible .map-edge { stroke: var(--gold-bright); stroke-width: 3.4; stroke-dasharray: none; opacity: 1; }
 .map-labels { pointer-events: none; }
-.map-label { font-family: var(--font-display); font-size: 19px; fill: var(--text); letter-spacing: 0.02em; paint-order: stroke; stroke: color-mix(in srgb, var(--surface) 70%, transparent); stroke-width: 3px; }
-.map-pct { font-family: var(--font-body); font-size: 14px; font-weight: 600; fill: var(--dim); pointer-events: none; font-variant-numeric: tabular-nums; }
-.map-region.is-complete .map-pct { fill: var(--accent); }
-.map-compass circle { fill: none; stroke: color-mix(in srgb, var(--gold) 55%, transparent); }
-.map-compass path { fill: color-mix(in srgb, var(--gold) 70%, transparent); }
-.map-compass text { font-family: var(--font-display); font-size: 12px; fill: var(--accent); }
-@media (max-width: 520px) {
-  .map-label { font-size: 22px; }
-  .map-pct { font-size: 17px; }
-}
+.map-pill rect { fill: #17211b; fill-opacity: 0.84; stroke: color-mix(in srgb, var(--region) 70%, #f1e6c6); stroke-width: 1.4; }
+.map-pill.is-complete rect { stroke: var(--gold-bright); stroke-width: 2; }
+.map-label { font-family: var(--font-display); font-size: 19px; fill: #f4ebd3; letter-spacing: 0.02em; }
+.map-pct { font-family: var(--font-body); font-size: 15px; font-weight: 600; fill: #d9c48a; font-variant-numeric: tabular-nums; }
+.map-pill.is-complete .map-pct { fill: var(--gold-bright); }
 
 /* ---- Search results -------------------------------------------------- */
 .search-results { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
