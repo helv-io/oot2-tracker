@@ -84,12 +84,17 @@ Notes for agents working on oot2-tracker.
 - Completing a section shows the item-get overlay (a fixed layer, never
   a transform on page content) and plays the fanfare. The hero Triforce
   is `triforce.webp` clipped by overall progress; keep it the one shape.
-- Sound lives in `lib/sound.ts`: one Web Audio graph, music at
-  `MUSIC_VOLUME` (0.08 to 0.12), started on the first gesture, paused on
-  hidden tabs. The top-right speaker button mutes music and fanfare
-  together and is stored in `oot-100-checklist:sound:v1`. Audio files
-  are built by `scripts/make-audio.py` (Opus WebM plus AAC); they are
-  cached on first play, not precached. Document any new sound in
+- Sound lives in `lib/sound.ts`: HTMLAudio elements for the lullaby and
+  fanfare, volume via a Web Audio GainNode (iOS ignores element volume).
+  `play()` must run inside the gesture, never after an await. The first
+  gesture listener stays until `isPlaying()` is true, so a rejected
+  play() is retried on the next tap. Music at `MUSIC_VOLUME` (0.08 to
+  0.12) fades in once the context is running; hidden tabs pause and
+  resume the element. Prefer AAC unless `canPlayType` says "probably"
+  for Opus, and fall back on error. The speaker button mutes both and
+  is stored in `oot-100-checklist:sound:v1`. Audio is not cached by the
+  service worker (Range requests break Safari). Files come from
+  `scripts/make-audio.py`. Document any new sound in
   `client/assets/official/SOURCES.md`.
 
 ## How it fits together

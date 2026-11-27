@@ -138,6 +138,41 @@ try {
       const open = await page.evaluate(measure, "#grp-skullrewards");
       await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-open.png` });
       failures.push(...report(`${engineName}/${vpName} open`, open));
+      // Lullaby: the expand click is a gesture, so play() should have been
+      // called in that turn. If the first play() was rejected, a second
+      // gesture must still be armed and retry.
+      await page.waitForTimeout(400);
+      const tag = `${engineName}/${vpName}`;
+      const snap = () =>
+        page.evaluate(() => {
+          const el = document.querySelector("audio[data-sound='lullaby']");
+          return {
+            state: document.documentElement.dataset.lullaby ?? "",
+            tries: Number(document.documentElement.dataset.lullabyTries ?? 0),
+            src: el?.getAttribute("src") ?? "",
+            paused: el ? el.paused : null,
+          };
+        });
+      let audio = await snap();
+      if (audio.tries < 1) failures.push(`${tag} lullaby: play() was never called (tries=${audio.tries})`);
+      if (audio.state !== "on") {
+        await page.locator("main").click({ position: { x: 8, y: 8 } });
+        await page.waitForTimeout(500);
+        const again = await snap();
+        if (again.tries < audio.tries + 1 && again.state !== "on") {
+          failures.push(`${tag} lullaby: second gesture did not retry play (was ${audio.tries}, now ${again.tries}, state ${again.state})`);
+        }
+        audio = again;
+      }
+      // Chromium plays through an <audio> element. Playwright's Linux WebKit
+      // crashes if those files are used as a media src, so it uses the
+      // decodeAudioData path and has no element; it must still retry.
+      if (engineName === "chromium") {
+        if (!audio.src) failures.push(`${tag} lullaby: no audio element after the first gesture`);
+        if (audio.state !== "on") failures.push(`${tag} lullaby: expected to be playing after a gesture (state ${audio.state}, paused ${audio.paused})`);
+      }
+      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-lullaby.png` });
+
       if (!open.open) failures.push(`${engineName}/${vpName}: expected the group to be open`);
       if (open.blurb && open.head && open.blurb.t < open.head.b - 1) {
         failures.push(`${engineName}/${vpName} open: blurb starts inside the header`);
@@ -163,7 +198,6 @@ try {
       failures.push(...report(`${engineName}/${vpName} after-scroll`, afterScroll));
 
       // Global search: "/" (desktop) or a tap, results, Enter jumps to the item.
-      const tag = `${engineName}/${vpName}`;
       await page.evaluate(() => window.scrollTo(0, 0));
       if (vpName === "desktop") await page.keyboard.press("/");
       else await page.locator("#checklist-search").tap();

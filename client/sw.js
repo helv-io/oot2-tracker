@@ -43,6 +43,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Audio and Range requests go to the network. Caching a 206, or
+  // answering a range from a full cached body, makes Safari fail to
+  // play, often only on a later visit.
+  if (url.pathname.startsWith("/assets/audio/") || req.headers.has("Range")) return;
+
   // Hashed assets, fonts and icons never change under the same URL.
   event.respondWith(
     caches.match(req).then(

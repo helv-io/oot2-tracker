@@ -211,6 +211,14 @@ test("sound mute is remembered per device", async () => {
   assert.equal(readMuted(store("on")), false);
   assert.equal(readMuted(store(null)), false);
   assert.ok(MUSIC_VOLUME >= 0.08 && MUSIC_VOLUME <= 0.12, "faint background music");
+  const { pickFormat } = await import("../client/src/lib/sound.ts");
+  assert.equal(pickFormat((t) => (t.includes("opus") ? "probably" : "")), "webm");
+  assert.equal(pickFormat((t) => (t.includes("opus") ? "maybe" : "")), "m4a");
+  assert.equal(pickFormat(() => ""), "m4a");
+  const { preferMediaElement } = await import("../client/src/lib/sound.ts");
+  assert.equal(preferMediaElement("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1", false), true);
+  assert.equal(preferMediaElement("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Safari/605.1.15", true), false);
+  assert.equal(preferMediaElement("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.8154.6 Safari/537.36", true), true);
 });
 
 test("key-item gating: every need can be earned, rules point at real items, hints read well", async () => {
