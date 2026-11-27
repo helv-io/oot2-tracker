@@ -142,6 +142,14 @@ class Sound {
   unlock(): void {
     this.ensureGraph();
     void this.ctx?.resume().catch(() => undefined);
+    this.bindVisibility();
+    // If the device is muted, only unlock the context. Loading the
+    // media files here can crash Playwright's Linux WebKit, and a later
+    // unmute is itself a gesture, so play() can wait until then.
+    if (this.muted) {
+      this.publish();
+      return;
+    }
     if (this.order.length === 0) this.order = shuffleTracks();
     if (this.useElement) {
       this.ensureElements();
@@ -151,7 +159,6 @@ class Sound {
       void this.startBufferMusic();
       this.publish();
     }
-    this.bindVisibility();
     this.watch();
   }
 

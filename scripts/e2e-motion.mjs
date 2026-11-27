@@ -187,6 +187,7 @@ try {
       await page.evaluate(() => {
         const silence = window.__ootSilence;
         if (typeof silence === "function") silence();
+        localStorage.setItem("oot-100-checklist:sound:v1", "muted");
         document.querySelectorAll("audio").forEach((a) => {
           try { a.pause(); } catch {}
         });
@@ -254,6 +255,7 @@ try {
       await page.evaluate(() => {
         localStorage.setItem("oot-100-checklist:device-checks:v1", JSON.stringify(["bot-1", "bot-2", "bot-3", "bot-4"]));
         localStorage.setItem("oot-100-checklist:prefs:v1", JSON.stringify({ view: "journey", theme: "dark" }));
+        localStorage.setItem("oot-100-checklist:sound:v1", "muted");
       });
       await page.reload({ waitUntil: "networkidle" });
       await page.locator("#grp-bottles button[aria-expanded]").first().click();
@@ -271,6 +273,7 @@ try {
       await page.evaluate(() => {
         localStorage.setItem("oot-100-checklist:device-checks:v1", JSON.stringify(["story-1"]));
         localStorage.setItem("oot-100-checklist:prefs:v1", JSON.stringify({ view: "journey", theme: "dark", filtersOpen: true }));
+        localStorage.setItem("oot-100-checklist:sound:v1", "muted");
       });
       await page.reload({ waitUntil: "networkidle" });
       await page.locator("#grp-story button[aria-expanded]").first().evaluate((b) => b.getAttribute("aria-expanded") === "true" || b.click());
