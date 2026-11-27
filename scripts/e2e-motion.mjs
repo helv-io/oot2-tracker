@@ -154,7 +154,8 @@ try {
       await page.waitForTimeout(400);
       const snap = () =>
         page.evaluate(() => {
-          const el = document.querySelector("audio[data-sound='lullaby']");
+          const nodes = [...document.querySelectorAll("audio[data-sound='music']")];
+          const el = nodes.find((a) => !a.paused) || nodes[0];
           return {
             state: document.documentElement.dataset.lullaby ?? "",
             tries: Number(document.documentElement.dataset.lullabyTries ?? 0),

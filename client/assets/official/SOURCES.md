@@ -175,11 +175,23 @@ Drawn here because the remake has no usable asset at the needed size, in the sam
 Nintendo publishes no downloadable recording of the Switch 2 remake's music or sound effects:
 Zelda Wiki's remake galleries host no audio files, and the soundtrack only streams in the
 Nintendo Music app, which can't be saved. Ripping a stream or trailer would break those
-services' terms, so both sounds are original renditions made by `scripts/make-audio.py`:
+services' terms, so these sounds are original renditions made by `scripts/make-audio.py`.
+The twelve songs use Koji Kondo's melodies (© Nintendo) performed by a synthesized ocarina
+over a quiet harp, mono, faded at both ends so the site can crossfade them. They are not
+the remake's recordings.
 
-- `client/assets/audio/lullaby.{webm,m4a}`: Zelda's Lullaby (composed by Koji Kondo,
-  © Nintendo) performed by a synthesized ocarina over a quiet harp, mono, about 38 s, looped.
-  Not the remake's recording.
+- `client/assets/audio/lullaby.{webm,m4a}`: Zelda's Lullaby
+- `client/assets/audio/epona.{webm,m4a}`: Epona's Song
+- `client/assets/audio/saria.{webm,m4a}`: Saria's Song
+- `client/assets/audio/sun.{webm,m4a}`: Sun's Song
+- `client/assets/audio/time.{webm,m4a}`: Song of Time
+- `client/assets/audio/storms.{webm,m4a}`: Song of Storms
+- `client/assets/audio/minuet.{webm,m4a}`: Minuet of Forest
+- `client/assets/audio/bolero.{webm,m4a}`: Bolero of Fire
+- `client/assets/audio/serenade.{webm,m4a}`: Serenade of Water
+- `client/assets/audio/nocturne.{webm,m4a}`: Nocturne of Shadow
+- `client/assets/audio/requiem.{webm,m4a}`: Requiem of Spirit
+- `client/assets/audio/prelude.{webm,m4a}`: Prelude of Light
 - `client/assets/audio/item-get.{webm,m4a}`: a short original "item get" style flourish, mono,
   2.4 s. Not the game's jingle.
 

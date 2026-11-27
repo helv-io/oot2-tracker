@@ -84,16 +84,19 @@ Notes for agents working on oot2-tracker.
 - Completing a section shows the item-get overlay (a fixed layer, never
   a transform on page content) and plays the fanfare. The hero Triforce
   is `triforce.webp` clipped by overall progress; keep it the one shape.
-- Sound lives in `lib/sound.ts`: HTMLAudio elements for the lullaby and
-  fanfare, volume via a Web Audio GainNode (iOS ignores element volume).
-  `play()` must run inside the gesture, never after an await. The first
-  gesture listener stays until `isPlaying()` is true, so a rejected
-  play() is retried on the next tap. Music at `MUSIC_VOLUME` (0.08 to
-  0.12) fades in once the context is running; hidden tabs pause and
-  resume the element. Prefer AAC unless `canPlayType` says "probably"
-  for Opus, and fall back on error. The speaker button mutes both and
-  is stored in `oot-100-checklist:sound:v1`. Audio is not cached by the
-  service worker (Range requests break Safari). Files come from
+- Sound lives in `lib/sound.ts`: a two-deck HTMLAudio playlist of the
+  twelve ocarina songs plus the fanfare, volume via a Web Audio GainNode
+  (iOS ignores element volume). `play()` must run inside the gesture,
+  never after an await; unlock both decks in that same gesture so the
+  next track can start. The first gesture listener stays until
+  `isPlaying()` is true, so a rejected play() is retried on the next
+  tap. Music at `MUSIC_VOLUME` (about 0.033, never loud) fades in slowly
+  once the context is running; tracks crossfade over `CROSSFADE_S` and
+  the playlist is shuffled once per visit, then loops. Hidden tabs pause
+  and resume. Prefer AAC unless `canPlayType` says "probably" for Opus,
+  and fall back on error. The speaker button mutes both and is stored in
+  `oot-100-checklist:sound:v1`. Audio is not cached by the service
+  worker (Range requests break Safari). Files come from
   `scripts/make-audio.py`. Document any new sound in
   `client/assets/official/SOURCES.md`.
 

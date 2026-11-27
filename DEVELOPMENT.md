@@ -89,7 +89,7 @@ build.mjs                 production build -> dist/
 python3 scripts/official-art.py   # official remake art -> client/assets/official/ + app icons
 python3 scripts/readme-art.py     # README banners and dividers -> docs/art/
 python3 scripts/social-preview.py  # GitHub social preview -> docs/social-preview.png
-python3 scripts/make-audio.py      # lullaby + item-get sound -> client/assets/audio/
+python3 scripts/make-audio.py      # ocarina playlist + item-get sound -> client/assets/audio/
 ```
 
 `official-art.py` downloads from Zelda Wiki, crops, pads and converts to

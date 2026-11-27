@@ -55,7 +55,7 @@ trade items), the list says so, with sources in
 - 🟣 **Satisfying ticks.** A pop and a haptic tap. Finish a section and you get an item-get moment with a fanfare. The Triforce fills as your total climbs.
 - 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status.
 - 🧭 **Smart filters.** In **Filters**, pick Child, Adult or Both to hide what that form can't do, hide finished items, and see what's locked: an item that needs a key item you haven't got (Hookshot, Iron Boots, a song...) is greyed with a small "Needs Hookshot" hint, never hidden. Your choices are remembered, and what you own comes from what you've ticked.
-- 🎵 **Zelda's Lullaby,** very faintly, after your first tap. The speaker button, top right, mutes music and fanfare and remembers it.
+- 🎵 **A quiet ocarina playlist** (Zelda's Lullaby and the other songs of Ocarina of Time), after your first tap, fading from one piece to the next. The speaker button, top right, mutes music and fanfare and remembers it.
 - 🟡 **Share your progress** as a read-only link, or print it as a PDF.
 - ⚪ **Light, dark or auto**, installable as an app, and works offline.
 
