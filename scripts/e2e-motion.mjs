@@ -113,10 +113,20 @@ try {
   for (const [engineName, engine] of engines) {
     const browser = await engine.launch();
     for (const [vpName, opts] of Object.entries(VIEWPORTS)) {
+      const tag = `${engineName}/${vpName}`;
       const ctx = await browser.newContext({ ...opts, reducedMotion: "no-preference", colorScheme: "dark" });
       const page = await ctx.newPage();
       const errors = [];
       page.on("pageerror", (e) => errors.push(String(e)));
+      page.on("crash", () => errors.push("page crashed"));
+      const shot = async (name) => {
+        try {
+          await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-${name}.png` });
+        } catch (err) {
+          failures.push(`${tag} screenshot ${name}: ${String(err.message).split("\n")[0]}`);
+        }
+      };
+      try {
       await page.goto(url, { waitUntil: "networkidle" });
       await page.waitForSelector("#grp-story");
       const group = page.locator("#grp-skullrewards");
@@ -131,18 +141,17 @@ try {
       await expand.click();
       await page.waitForTimeout(100);
       const midOpen = await page.evaluate(measure, "#grp-skullrewards");
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-mid-open.png` });
+      await shot("mid-open");
       failures.push(...report(`${engineName}/${vpName} mid-open`, midOpen));
 
       await page.waitForTimeout(300);
       const open = await page.evaluate(measure, "#grp-skullrewards");
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-open.png` });
+      await shot("open");
       failures.push(...report(`${engineName}/${vpName} open`, open));
       // Lullaby: the expand click is a gesture, so play() should have been
       // called in that turn. If the first play() was rejected, a second
       // gesture must still be armed and retry.
       await page.waitForTimeout(400);
-      const tag = `${engineName}/${vpName}`;
       const snap = () =>
         page.evaluate(() => {
           const el = document.querySelector("audio[data-sound='lullaby']");
@@ -171,7 +180,16 @@ try {
         if (!audio.src) failures.push(`${tag} lullaby: no audio element after the first gesture`);
         if (audio.state !== "on") failures.push(`${tag} lullaby: expected to be playing after a gesture (state ${audio.state}, paused ${audio.paused})`);
       }
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-lullaby.png` });
+      await shot("lullaby");
+      // Pause so later steps are not sitting on a looping media element.
+      // Playwright WebKit has been seen to crash a few seconds into playback.
+      await page.evaluate(() => {
+        const silence = window.__ootSilence;
+        if (typeof silence === "function") silence();
+        document.querySelectorAll("audio").forEach((a) => {
+          try { a.pause(); } catch {}
+        });
+      }).catch(() => undefined);
 
       if (!open.open) failures.push(`${engineName}/${vpName}: expected the group to be open`);
       if (open.blurb && open.head && open.blurb.t < open.head.b - 1) {
@@ -182,7 +200,7 @@ try {
       await expand.click();
       await page.waitForTimeout(100);
       const midClose = await page.evaluate(measure, "#grp-skullrewards");
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-mid-close.png` });
+      await shot("mid-close");
       failures.push(...report(`${engineName}/${vpName} mid-close`, midClose));
 
       await page.waitForTimeout(300);
@@ -193,7 +211,7 @@ try {
       await page.waitForTimeout(150);
       await page.evaluate(() => window.scrollBy(0, 600));
       await page.waitForTimeout(150);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-scroll.png` });
+      await shot("scroll");
       const afterScroll = await page.evaluate(measure, "#grp-story");
       failures.push(...report(`${engineName}/${vpName} after-scroll`, afterScroll));
 
@@ -217,7 +235,7 @@ try {
         return { ok: r.top >= 0 && r.bottom <= innerHeight && !!open, why: `top ${Math.round(r.top)} open ${open}` };
       }, firstHit);
       if (!jumped.ok) failures.push(`${tag} search jump: ${jumped.why}`);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-search-jump.png` });
+      await shot("search-jump");
 
       // Map view: tap a region, its group opens and scrolls into view.
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -229,7 +247,7 @@ try {
       failures.push(...report(`${tag} map jump`, region));
       if (!region.open) failures.push(`${tag} map: Death Mountain did not open`);
       if (region.card && (region.card.t < 0 || region.card.t > 400)) failures.push(`${tag} map: group not scrolled into view (${Math.round(region.card.t)})`);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-map-jump.png` });
+      await shot("map-jump");
 
       // Item get: finish a section (Bottles) and capture the overlay mid-animation.
       await page.evaluate(() => {
@@ -243,7 +261,7 @@ try {
       await page.waitForTimeout(500);
       const overlay = await page.locator(".item-get").count();
       if (!overlay) failures.push(`${tag} item get: no overlay after finishing Bottles`);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-item-get.png` });
+      await shot("item-get");
       const fill = await page.locator(".tf-top").first().evaluate((el) => getComputedStyle(el).clipPath);
       if (!/inset/.test(fill)) failures.push(`${tag} triforce fill: ${fill}`);
 
@@ -262,7 +280,7 @@ try {
       if (!/locked/.test(lockedClass ?? "")) failures.push(`${tag} gating: story-7 not marked locked`);
       await page.locator("#item-story-7 button[role=checkbox]").click();
       if ((await page.locator("#item-story-7 button[role=checkbox]").getAttribute("aria-checked")) !== "true") failures.push(`${tag} gating: a locked row would not tick`);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-locked.png` });
+      await shot("locked");
       await page.getByRole("button", { name: "Adult", exact: true }).click();
       await page.getByRole("button", { name: "Hide finished" }).click();
       await page.waitForTimeout(200);
@@ -274,10 +292,13 @@ try {
       await page.waitForTimeout(450);
       if (await page.locator("#item-story-1").count()) failures.push(`${tag} filters: finished or Child-only row still listed`);
       if (!(await page.locator("#item-story-9").count())) failures.push(`${tag} filters: Adult row missing`);
-      await page.screenshot({ path: `${OUT}/${engineName}-${vpName}-filters.png` });
+      await shot("filters");
 
-      if (errors.length) failures.push(`${engineName}/${vpName} pageerror: ${errors.join("; ")}`);
-      await ctx.close();
+      } catch (err) {
+        failures.push(`${tag}: ${String(err.message).split("\n")[0]}`);
+      }
+      if (errors.length) failures.push(`${tag} pageerror: ${errors.join("; ")}`);
+      await ctx.close().catch(() => undefined);
     }
     await browser.close();
   }

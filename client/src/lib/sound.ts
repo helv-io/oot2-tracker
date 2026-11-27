@@ -93,6 +93,19 @@ class Sound {
     return !!this.musicSrc && this.ctx?.state === "running";
   }
 
+  /** Stop playback. Used by the motion e2e so later steps are quiet. */
+  silence(): void {
+    this.wantMusic = false;
+    this.musicEl?.pause();
+    this.sfxEl?.pause();
+    if (this.musicSrc) {
+      try { this.musicSrc.stop(); } catch { /* already stopped */ }
+      this.musicSrc = null;
+    }
+    void this.ctx?.suspend().catch(() => undefined);
+    this.publish();
+  }
+
   /** Call from a user gesture: must invoke play()/resume() before any await. */
   unlock(): void {
     this.ensureGraph();
@@ -372,6 +385,7 @@ export const sound = new Sound();
  * muted hardware switch that later flips) must not disarm the retry.
  */
 export function armSoundOnFirstGesture(): () => void {
+  (window as unknown as { __ootSilence?: () => void }).__ootSilence = () => sound.silence();
   const go = () => {
     sound.unlock();
     if (sound.isPlaying()) off();
