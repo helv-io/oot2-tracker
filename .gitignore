@@ -7,3 +7,6 @@ dist/
 .env
 .DS_Store
 /data/
+
+# local QA renders
+docs/qa/
