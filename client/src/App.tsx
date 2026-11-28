@@ -20,6 +20,7 @@ import { ART } from "./data/art.generated";
 import { Sprite } from "./components/Art";
 import { Fireflies } from "./components/Fireflies";
 import { HyruleMap, type RegionProgress } from "./components/HyruleMap";
+import { HallMap } from "./components/HallMap";
 import { buildChecklistPdf } from "./pdf";
 import { WriteQueue, type QueueStatus } from "./lib/sync";
 import { reconcile, sameSet } from "./lib/reconcile";
@@ -30,7 +31,7 @@ import { armSoundOnFirstGesture, sound } from "./lib/sound";
 
 type StatusFilter = "all" | "todo" | "done";
 type AgeFilter = "all" | "Child" | "Adult";
-type ViewMode = "journey" | "places" | "eras" | "map";
+type ViewMode = "journey" | "places" | "eras" | "map" | "hall";
 type ThemeMode = "system" | "light" | "dark";
 type AccountState = "signedout" | "connecting" | "synced" | "conflict" | "offline";
 
@@ -93,7 +94,7 @@ function readPrefs(): Prefs {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}") as Partial<Prefs>;
     return {
-      view: parsed.view === "places" || parsed.view === "eras" || parsed.view === "map" ? parsed.view : "journey",
+      view: parsed.view === "places" || parsed.view === "eras" || parsed.view === "map" || parsed.view === "hall" ? parsed.view : "journey",
       filtersOpen: parsed.filtersOpen === true,
       theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
       age: parsed.age === "Child" || parsed.age === "Adult" ? parsed.age : "all",
@@ -900,6 +901,7 @@ export function App() {
     if (view === "map") return mapGroups();
     if (view === "places") return locationGroups();
     if (view === "eras") return eraGroups();
+    if (view === "hall") return journeyGroups().filter((g) => g.key === "foes" || g.key === "hallbattles");
     return journeyGroups();
   }, [view]);
 
@@ -936,6 +938,16 @@ export function App() {
     setSearchOpen(false);
     searchRef.current?.blur();
     if (group) setJump({ group: group.key, item: id, n: Date.now() });
+  };
+  const jumpToHallItem = (id: string) => {
+    const group = id.startsWith("rm-") || id.startsWith("trial-") ? "hallbattles" : "foes";
+    setQuery("");
+    setStatus("all");
+    setAge("all");
+    setSearchOpen(false);
+    searchRef.current?.blur();
+    setPrefs((p) => ({ ...p, view: "journey", hideDone: false }));
+    setJump({ group, item: id, n: Date.now() });
   };
   const jumpToRegion = useCallback((regionId: string) => {
     setJump({ group: `map-${regionId}`, n: Date.now() });
@@ -1199,6 +1211,7 @@ export function App() {
                 ["places", "Places"],
                 ["eras", "Eras"],
                 ["map", "Map"],
+                ["hall", "Hall"],
               ] as [ViewMode, string][]
             ).map(([mode, label]) => (
               <button
@@ -1206,7 +1219,7 @@ export function App() {
                 type="button"
                 aria-pressed={view === mode}
                 onClick={() => setPrefs((p) => ({ ...p, view: mode }))}
-                className="font-display flex-1 rounded-full px-2 text-[14px] transition-colors"
+                className="font-display flex-1 rounded-full px-1.5 text-[13px] sm:px-2 sm:text-[14px] transition-colors"
                 style={{
                   background: view === mode ? "var(--surface)" : "transparent",
                   color: view === mode ? "var(--text)" : "var(--dim)",
@@ -1378,7 +1391,26 @@ export function App() {
       {/* ---------- Sections ---------- */}
       <main id="checklist" className="mx-auto flex max-w-3xl flex-col gap-3.5 px-4 py-4 pb-10">
         {view === "map" && !filtering && <HyruleMap progress={regionProgress} onPick={jumpToRegion} />}
-        {visibleGroups.length === 0 ? (
+        {view === "hall" && !filtering && (
+          <HallMap
+            checked={viewChecked}
+            age={age === "Child" || age === "Adult" ? age : "all"}
+            hideDone={prefs.hideDone}
+            onToggle={(id: string, next: boolean) => {
+              onToggle(id, next);
+              if (!next) return;
+              const section = SECTIONS.find((s) => s.items.some((i) => i.id === id));
+              if (!section) return;
+              if (!section.items.every((i) => i.id === id || viewChecked.has(i.id))) return;
+              onGroupComplete(
+                { key: section.id, title: section.title, icon: "hall-statue", tone: "light", items: section.items },
+                null,
+              );
+            }}
+            onJump={jumpToHallItem}
+          />
+        )}
+        {!(view === "hall" && !filtering) && (visibleGroups.length === 0 ? (
           <div className="py-10 text-center" style={{ color: "var(--dim)" }}>
             <p>Nothing matches.</p>
             <button type="button" onClick={clearFilters} className="mt-2 font-semibold underline" style={{ color: "var(--accent)", minHeight: 36 }}>
@@ -1408,7 +1440,7 @@ export function App() {
               onComplete={onGroupComplete}
             />
           ))
-        )}
+        ))}
 
         {doneTotal === TOTAL_ITEMS && (
           <div className="rise-in rounded-2xl px-5 py-6 text-center" style={{ background: "linear-gradient(160deg, #1f3327, #0f1a13)", border: "1px solid var(--gold)" }}>

@@ -6,6 +6,7 @@
 const PREFIXES = [
   "story", "gs", "hp", "skr", "soil", "bot", "song", "up", "gf",
   "mask", "trade", "gtg", "merch", "gear", "side", "chal", "egg",
+  "foe", "rm", "trial",
 ] as const;
 
 const ID_RE = /^([a-z]+)-(\d+)$/;

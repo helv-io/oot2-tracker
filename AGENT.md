@@ -60,10 +60,12 @@ Notes for agents working on oot2-tracker.
   canvas on hidden tabs; under `prefers-reduced-motion` draw a still
   frame or nothing.
 
-- Views: Journey, Places, Eras, Map. The Map is Nintendo's official remake
+- Views: Journey, Places, Eras, Map, Hall. The Map is Nintendo's official remake
   map (`art/hyrule-map-1200.webp`, fetched by `scripts/official-art.py`,
   never an N64, 3DS or ROM map) under SVG hotspots (`data/map.ts`,
-  `components/HyruleMap.tsx`). Hotspots are polygons in the cropped map's
+  `components/HyruleMap.tsx`). The Hall view is a schematic of the Hall of
+  Fallen Foes (`data/foes.ts`, `components/HallMap.tsx`): six wedges and 84
+  seats in Zelda Wiki order; positions are schematic, not a traced floor plan. Hotspots are polygons in the cropped map's
   units; a test keeps them inside it. Every catalog area belongs to
   exactly one region (a test checks it). Tint follows completion and turns
   gold at 100%; hover and focus change stroke only. Keep labels legible at

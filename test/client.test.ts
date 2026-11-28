@@ -112,7 +112,7 @@ test("reconcile decides who wins", () => {
 });
 
 test("catalog is complete and well formed", () => {
-  assert.equal(TOTAL_ITEMS, 274);
+  assert.equal(TOTAL_ITEMS, 386);
   const ids = ALL_ITEMS.map((i) => i.id);
   assert.equal(new Set(ids).size, ids.length, "ids are unique");
   for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9-]{0,63}$/, `server accepts ${id}`);
@@ -122,6 +122,8 @@ test("catalog is complete and well formed", () => {
   // The Switch 2 remake adds a fifth bottle (the Potion Shop bug).
   assert.equal(count("bottles"), 5);
   assert.equal(count("fairies"), 6);
+  assert.equal(count("foes"), 84);
+  assert.equal(count("hallbattles"), 28);
   for (const item of ALL_ITEMS) assert.ok(item.name && item.detail, item.id);
 });
 
@@ -202,6 +204,45 @@ test("the map covers every place, once, and its regions jump to real groups", as
   const groups = mapGroups();
   assert.equal(groups.reduce((n, g) => n + g.items.length, 0), TOTAL_ITEMS, "every item once");
   for (const r of MAP_REGIONS) assert.ok(groups.some((g) => g.key === `map-${r.id}` && g.items.length > 0), r.id);
+});
+
+test("the Hall of Fallen Foes has 84 statues, 25 rematches and a schematic seat for each", async () => {
+  const { FOE_RECORDS, FOE_ITEMS, REMATCH_RECORDS, TRIAL_ITEMS, HALL_SEATS, HALL_WEDGES, REMATCH_BY_FOE } = await import("../client/src/data/foes.ts");
+  assert.equal(FOE_RECORDS.length, 84);
+  assert.equal(FOE_ITEMS.length, 84);
+  assert.equal(REMATCH_RECORDS.length, 25);
+  assert.equal(TRIAL_ITEMS.length, 3);
+  assert.equal(HALL_WEDGES.length, 6);
+  assert.equal(HALL_SEATS.length, 84);
+  const foeIds = new Set(FOE_ITEMS.map((i) => i.id));
+  assert.equal(foeIds.size, 84);
+  assert.equal(HALL_SEATS.filter((s) => s.rematch).length, 25);
+  assert.equal(HALL_SEATS.filter((s) => !s.rematch).length, 59);
+  for (const seat of HALL_SEATS) {
+    assert.ok(foeIds.has(seat.id), seat.id);
+    assert.equal(seat.placement, "schematic");
+    assert.ok(seat.x >= 0 && seat.x <= 400 && seat.y >= 0 && seat.y <= 400, seat.id);
+  }
+  for (const r of REMATCH_RECORDS) {
+    assert.ok(foeIds.has(r.foeId), r.item.id);
+    assert.equal(REMATCH_BY_FOE.get(r.foeId), r.item.id);
+    assert.ok(FOE_RECORDS.some((f) => f.item.id === r.foeId && f.rematch), r.item.id);
+  }
+  const byWedge = Object.fromEntries(HALL_WEDGES.map((w) => [w.id, { r: 0, m: 0 }]));
+  for (const rec of FOE_RECORDS) {
+    if (rec.rematch) byWedge[rec.wedge].m += 1;
+    else byWedge[rec.wedge].r += 1;
+  }
+  assert.deepEqual(byWedge["phantom-ganon"], { r: 10, m: 5 });
+  assert.deepEqual(byWedge["volvagia"], { r: 10, m: 5 });
+  assert.deepEqual(byWedge["morpha"], { r: 11, m: 5 });
+  assert.deepEqual(byWedge["twinrova"], { r: 9, m: 4 });
+  assert.deepEqual(byWedge["bongo-bongo"], { r: 10, m: 3 });
+  assert.deepEqual(byWedge["ganon"], { r: 9, m: 3 });
+  const names = TRIAL_ITEMS.map((i) => i.name);
+  assert.ok(names.includes("Trial of the Spiritual Stones"));
+  assert.ok(names.includes("Trial of the Five Sages"));
+  assert.ok(names.includes("Trial of the Hero of Time"));
 });
 
 test("sound mute is remembered per device", async () => {

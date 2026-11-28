@@ -107,6 +107,8 @@ export const SECTION_LOOK: Record<string, Place> = {
   sidequests: { tone: "shadow", icon: "big-poe" },
   challenges: { tone: "spirit", icon: "target" },
   eastereggs: { tone: "fairy", icon: "fairy" },
+  foes: { tone: "light", icon: "hall-statue" },
+  hallbattles: { tone: "light", icon: "hall-statue" },
 };
 
 export const ERA_LOOK: Record<string, Place> = {

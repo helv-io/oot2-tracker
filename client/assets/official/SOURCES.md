@@ -169,6 +169,12 @@ Drawn here because the remake has no usable asset at the needed size, in the sam
   trim empty parchment. It is the only full-overworld map the remake has published.
 - The Map view's region hotspots and tints (`client/src/data/map.ts`): outlines traced over the
   official map above. The map itself is Nintendo's art; no N64, 3DS or ROM map is used.
+- `icons/hall-statue.webp`: a custom stone-plinth emblem for the Hall of Fallen Foes sections,
+  drawn here because the remake has no small usable Hall icon. The Hall view is a schematic of
+  the amphitheater (six wedges from Zelda Wiki), not a trace of an official top-down shot.
+  Nintendo's Hall screenshot (Zelda Wiki, File:OoTNS2 Hall of Fallen Foes.png) is a ground-level
+  view and is not used as a map background.
+
 
 ## Audio
 

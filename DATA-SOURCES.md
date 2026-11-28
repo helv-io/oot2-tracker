@@ -8,7 +8,7 @@ that couldn't be confirmed keeps the original game's data and is listed
 under **Unverified**.
 
 Item ids never change (they are the sync contract), so new deeds get
-new ids: `bot-5` and `egg-15` in v1.2.0.
+new ids: `bot-5` and `egg-15` in v1.2.0; `foe-1` to `foe-84`, `rm-1` to `rm-25` and `trial-1` to `trial-3` in v1.3.5.
 
 ## Changes from the original, reflected in the catalog
 
@@ -28,7 +28,10 @@ new ids: `bot-5` and `egg-15` in v1.2.0.
 | Trading timers | Mushroom 3 min, frog 3 min, drops 4 min | Mushroom **4 min**, frog **2.5 min**, drops **3.5 min** | `trade-3`, `trade-8`, `trade-9` | Zelda Wiki: [Odd Mushroom][zw-mushroom], [Eyeball Frog][zw-frog], [Receipt][zw-receipt] |
 | Running Man | Fills your wallet for the Bunny Hood | Pays a Gold Rupee (200) | `mask-4` | [Zelda Wiki: Bunny Hood][zw-bunny] |
 | Wallets | Child's 99, Adult's 200, Giant's 500 | Kokiri Wallet 200, Adult's 500, Giant's 1,000 | `skr-1`, `skr-3` | Zelda Wiki: [Kokiri Wallet][zw-kwallet], [Adult's Wallet][zw-awallet], [Giant's Wallet][zw-gwallet] (in-game Collection text) |
-| Hall of Fallen Foes | none | New: sleep in a glowing green bed to rematch bosses | `egg-15` | [Zelda Wiki promo screenshots][zw-files] |
+| Hall of Fallen Foes (entry) | none | New: after the Forest Temple, sleep in a glowing green bed to enter the hall | `egg-15` | [Zelda Wiki: Hall of Fallen Foes][zw-hall], [Questfern][qf-hall] |
+| Hall of Fallen Foes (statues) | none | **84** enemy statues in six wedges. Official name: Hall of Fallen Foes (no "the"). Exact card names, including variants (two False Doors, two Poes, two Stalfos, three Iron Knuckles, two Green Bubbles, two Leevers, the four Forest Temple sisters, Sharp the Elder, Flat the Younger). Commonly missed: adult Skull Kid, purple Leever leader, large Green Bubble in the Bottom of the Well | `foe-1` to `foe-84`, section `foes`, Hall view | [Zelda Wiki: Hall of Fallen Foes][zw-hall], [Zelda Dungeon: statues][zd-hall], [Hyrule Atlas][ha-hall], [Nintendo Everything 100%][ne-100] |
+| Hall of Fallen Foes (rematches) | none | **25** timed rematches on rectangular stands (10 bosses and 15 miniboss variants). Questfern lists 12 miniboss types; in-game Stalfos and Iron Knuckle variants have their own pedestals | `rm-1` to `rm-25`, section `hallbattles` | [Zelda Wiki: Hall of Fallen Foes][zw-hall], [ootremake.wiki][orw-hall], [Questfern][qf-hall] |
+| Hall of Fallen Foes (trials) | none | Three owl trials: Trial of the Spiritual Stones (Gohma, King Dodongo, Barinade), Trial of the Five Sages (Phantom Ganon, Volvagia, Morpha, Bongo Bongo, Twinrova), Trial of the Hero of Time (those eight, then Ganondorf and Ganon). First clears send stone, silver and gold trophies to Link's house. Zelda Notes medals are not required | `trial-1`, `trial-2`, `trial-3` | [Zelda Wiki: Hall of Fallen Foes][zw-hall], [Questfern][qf-hall], [Nintendo Everything 100%][ne-100] |
 
 ## Corrections that aren't remake changes
 
@@ -84,3 +87,10 @@ Kept as the original or as the earlier guide had it, pending a second source:
 [rpg-gs]: https://www.rpgsite.net/guide/21634-the-legend-zelda-ocarina-time-remake-gold-skulltula-locations-guide-all-100-token-locations
 [rpg-hp]: https://www.rpgsite.net/guide/21635-the-legend-zelda-ocarina-time-remake-heart-piece-locations-guide
 [gr-hp]: https://gamingroute.com/ocarina-of-time-heart-pieces/
+
+[zw-hall]: https://zeldawiki.wiki/wiki/Hall_of_Fallen_Foes
+[zd-hall]: https://www.zeldadungeon.net/wiki/Ocarina_of_Time_Hall_of_Fallen_Foes_Statues
+[ha-hall]: https://hyruleatlas.com/ocarina-of-time-switch-2/hall-of-fallen-foes/
+[qf-hall]: https://questfern.com/oot/guides/hall-of-fallen-foes/
+[orw-hall]: https://ootremake.wiki/changes/hall-of-fallen-foes
+[ne-100]: https://nintendoeverything.com/zelda-ocarina-of-time-100-percent-completion-guide/

@@ -6,8 +6,11 @@
 //
 // Every collectible is its own row: 100 Skulltulas, 36 Pieces of Heart,
 // 10 soft-soil patches, all capacity upgrades, both trading sequences,
-// Great Fairy gifts, one-time merchant rewards, and the Gerudo Proving
-// Grounds. Remake changes and their sources: DATA-SOURCES.md.
+// Great Fairy gifts, one-time merchant rewards, the Gerudo Proving
+// Grounds, all 84 Hall of Fallen Foes statues, 25 rematches and the
+// three owl trials. Remake changes and their sources: DATA-SOURCES.md.
+
+import { FOE_ITEMS, HALL_BATTLE_ITEMS } from "./foes.ts";
 
 export type Age = "Child" | "Adult" | "Both";
 export type DayTime = "Night" | "Day" | "Any";
@@ -25,7 +28,8 @@ export type IconKind =
   | "training"
   | "merchant"
   | "gear"
-  | "sidequest";
+  | "sidequest"
+  | "foe";
 
 export interface CatalogItem {
   id: string;
@@ -240,6 +244,23 @@ export const SECTIONS: CatalogSection[] = [
       s("hp", 35, "The Business Scrub's password", "As an adult, read the Fairy Note on the tree by the castle drawbridge; then, as a child, bomb open the grotto nearby, give the Business Scrub the password ('Sell somethin', will ya?') and buy the piece for 100 rupees.", "Hyrule Field", "Both"),
       s("hp", 36, "The crater Business Scrub", "The remake's third crater piece: as a child, enter the crater from the trail, drop to the lower ground on the left, reflect the scrub's Deku Nut back at him, and buy the piece for 100 rupees. Hurry, the heat is ticking.", "Death Mountain Crater", "Child"),
     ],
+  },
+
+  {
+    id: "foes",
+    title: "Hall of Fallen Foes: All 84",
+    icon: "foe",
+    blurb:
+      "Every enemy statue in the remake's Hall of Fallen Foes, a dream amphitheater you reach by sleeping in a glowing green bed after the Forest Temple. Defeat one of each kind in the world and its statue appears. Kaepora Gaebora will tell you how many are still missing. Some kinds have more than one statue (two False Doors, two Poes, two Stalfos, three Iron Knuckles, two Green Bubbles, two Leevers). Commonly missed: the adult Skull Kid in the Lost Woods, the purple Leever leader at the Desert Colossus, and the large Green Bubble in the Bottom of the Well.",
+    items: FOE_ITEMS,
+  },
+  {
+    id: "hallbattles",
+    title: "Hall of Fallen Foes: Rematches and Trials",
+    icon: "foe",
+    blurb:
+      "Win the 25 timed rematches on the rectangular stands around the outer ring (10 bosses and 15 miniboss variants), then the three owl trials in the center: Trial of the Spiritual Stones, Trial of the Five Sages, and Trial of the Hero of Time. A first trial clear sends a stone, silver or gold owl trophy to the shelf in Link's house. Winning at any time counts; Zelda Notes medals are not required.",
+    items: HALL_BATTLE_ITEMS,
   },
   {
     id: "skullrewards",

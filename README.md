@@ -17,7 +17,8 @@
 </p>
 
 <p align="center">
-  <img alt="274 deeds" src="https://img.shields.io/badge/deeds-274-c9a85a?style=flat-square&labelColor=2a2418">
+  <img alt="386 deeds" src="https://img.shields.io/badge/deeds-386-c9a85a?style=flat-square&labelColor=2a2418">
+  <img alt="84 Hall statues" src="https://img.shields.io/badge/hall%20statues-84-7a6a4a?style=flat-square&labelColor=2a2418">
   <img alt="100 Gold Skulltulas" src="https://img.shields.io/badge/gold%20skulltulas-100-b89b4a?style=flat-square&labelColor=2a2418">
   <img alt="36 Pieces of Heart" src="https://img.shields.io/badge/pieces%20of%20heart-36-b0614b?style=flat-square&labelColor=2a1a16">
   <img alt="5 bottles" src="https://img.shields.io/badge/bottles-5-4f7fa6?style=flat-square&labelColor=16202a">
@@ -34,10 +35,11 @@
 ## What it is
 
 A checklist for **100% completion** of *Ocarina of Time* on Switch 2:
-274 deeds in 17 sections. The main quest, all **100 Gold Skulltulas**
+386 deeds in 19 sections. The main quest, all **100 Gold Skulltulas**
 and **36 Pieces of Heart**, every upgrade, soft soil, all **5 bottles**,
 songs, Great Fairies, both trading sequences, the Gerudo Proving
-Grounds, merchant deals, minigame challenges and Easter eggs.
+Grounds, all **84 Hall of Fallen Foes** statues, **25 rematches** and
+the three owl trials, merchant deals, minigame challenges and Easter eggs.
 
 It follows the remake, not the N64 original. Where the two differ (the
 fifth bottle, five Big Poes, fixed Bombchu Bowling prizes, renamed
@@ -50,7 +52,7 @@ trade items), the list says so, with sources in
 
 - 🟢 **Official remake art.** Every item, place and section wears its in-game icon.
 - 🔴 **Region colours.** Forest green, Death Mountain red, Zora blue, Shadow violet, desert sand, royal gold. Muted, never loud.
-- 🔵 **Four views, one list.** Walk it by **Journey**, by **Places**, by **Eras** (Child and Adult Link), or on the **Map**. Every group has its own progress ring.
+- 🔵 **Five views, one list.** Walk it by **Journey**, by **Places**, by **Eras** (Child and Adult Link), on the **Map**, or in the **Hall of Fallen Foes**. Every group has its own progress ring. The Hall view is a schematic of the amphitheater: unidentified statues are highlighted, and tapping one opens its entry.
 - 🗺️ **Nintendo's map of Hyrule.** The remake's own map, with each region tinting in its colour as you finish it and turning gold at 100%. Tap a region to jump to its list.
 - 🟣 **Satisfying ticks.** A pop and a haptic tap. Finish a section and you get an item-get moment with a fanfare. The Triforce fills as your total climbs.
 - 🟠 **Search everything.** Press `/` and type (try "bottle" or "Hookshot"). Pick a result to jump straight to it. Filter by status.
